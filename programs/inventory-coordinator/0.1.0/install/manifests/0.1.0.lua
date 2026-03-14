@@ -2,11 +2,10 @@ return {
   program = "inventory-coordinator",
   role = "coordinator",
   version = "0.1.0",
-  runtime_entry = "startup.lua",
+  runtime_entry = "src/main.lua",
   files = {
-    { path = "startup.lua", source_path = "startup.lua" },
     { path = "README.md", source_path = "README.md" },
-    { path = "src/coordinator.lua", source_path = "src/coordinator.lua" },
+    { path = "src/main.lua", source_path = "src/main.lua" },
     { path = "src/app/release_service.lua", source_path = "src/app/release_service.lua" },
     { path = "src/app/runtime.lua", source_path = "src/app/runtime.lua" },
     { path = "src/deps/log.lua", source_path = "src/deps/log.lua" },

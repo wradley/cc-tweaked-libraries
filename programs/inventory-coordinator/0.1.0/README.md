@@ -34,7 +34,10 @@ Those long-lived domain objects now live under `src/model/`.
 
 ## Filesystem layout
 
-- `startup.lua`: root entrypoint used by the ComputerCraft computer
+Development layout:
+
+- `startup.lua`: development launcher that runs `/src/main.lua`
+- `src/main.lua`: runnable coordinator entrypoint
 - `src/`: runtime coordinator source code
 - `src/app/`: coordinator orchestration and release flow
 - `src/model/`: long-lived domain objects such as schedule, cycle, plan, and transfer queue
@@ -42,9 +45,20 @@ Those long-lived domain objects now live under `src/model/`.
 - `src/ui/`: coordinator terminal UI
 - `src/deps/`: vendored runtime dependencies such as logging
 - `install/`: installer, manifest, and config template for this program
+- `tst/`: test code and test-only dependencies
+
+Installed layout:
+
+- `/startup.lua`: generated launcher that selects the active installed version and runs `/programs/inventory-coordinator/<version>/src/main.lua`
+- `/programs/inventory-coordinator/<version>/src/main.lua`: runnable installed coordinator entrypoint
 - `/etc/inventory-coordinator/config.lua`: machine-local coordinator config when installed
 - `/var/inventory-coordinator/`: generated persisted state, queue snapshots, and logs when installed
-- `tst/`: test code and test-only dependencies
+
+Runtime convention:
+
+- `startup.lua` is only a launcher
+- `src/main.lua` is the executable entrypoint
+- all other files under `src/` are modules loaded with `require`
 
 ## Persistence boundary
 

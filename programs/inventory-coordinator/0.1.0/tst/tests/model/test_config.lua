@@ -8,7 +8,7 @@ function M.testDefaultConfigValidates()
 
   lu.assertEquals(config.version, 1)
   lu.assertEquals(config.coordinator.id, "central")
-  lu.assertEquals(config.logging.output.file, "var/coordinator.log")
+  lu.assertEquals(config.logging.output.file, "/var/inventory-coordinator/coordinator.log")
 end
 
 function M.testMissingLoggingUsesDefaults()
