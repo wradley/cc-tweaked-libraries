@@ -11,27 +11,18 @@ local M = {}
 ---@param warehouseState WarehouseState
 ---@param globalUsedTotal integer|nil
 ---@return nil
-local function writeStatusLine(state, warehouseId, warehouseState, globalUsedTotal)
+local function writeStatusLine(state, warehouseId, warehouseState)
   local snapshot = warehouseState.snapshot
-  local shareText = "? of global"
+  local statusText = fmt.stateLabel(state, warehouseState)
+  local snapshotAge = state.warehouse_registry:snapshotAgeSeconds(warehouseState)
+  local capacityText = "no snap"
 
-  if warehouseState.state == "accepted" and snapshot and globalUsedTotal and globalUsedTotal > 0 then
-    local used = snapshot.capacity.slot_capacity_used or 0
-    if used <= 0 then
-      shareText = "0% of global"
+  if snapshot then
+    local usedPercent = fmt.usedCapacityPercent(snapshot)
+    if usedPercent ~= nil then
+      capacityText = tostring(usedPercent) .. "% used"
     else
-      local shareTenths = math.floor((used * 1000) / globalUsedTotal + 0.5)
-      if shareTenths > 0 and shareTenths < 10 then
-        shareText = "<1% of global"
-      else
-        local whole = math.floor(shareTenths / 10)
-        local tenth = shareTenths % 10
-        if tenth == 0 then
-          shareText = tostring(whole) .. "% of global"
-        else
-          shareText = tostring(whole) .. "." .. tostring(tenth) .. "% of global"
-        end
-      end
+      capacityText = "cap ?"
     end
   end
 
@@ -44,14 +35,17 @@ local function writeStatusLine(state, warehouseId, warehouseState, globalUsedTot
     term.setTextColor(color)
   end
 
-  term.write(fmt.stateLabel(state, warehouseState))
+  term.write(statusText)
 
   if originalColor and term.setTextColor then
     term.setTextColor(originalColor)
   end
 
-  term.write("]: ")
-  term.write(shareText)
+  term.write("] ")
+  term.write(capacityText)
+  if snapshotAge ~= nil then
+    term.write(" snap " .. fmt.formatElapsed(snapshotAge))
+  end
 
   local _, y = term.getCursorPos()
   term.setCursorPos(1, y + 1)
@@ -66,35 +60,32 @@ function M.draw(state)
   local schedule = state.schedule
   local now = os.epoch("utc")
   local remainingSeconds = schedule and schedule:remainingSeconds(now)
-  local remainingText = remainingSeconds and fmt.formatElapsed(remainingSeconds) or "unknown"
 
   term.clear()
   term.setCursorPos(1, 1)
   print(state.config.coordinator.display_name or state.config.coordinator.id)
-  print("Warehouses: " .. tostring(summary.online_warehouses) .. "/" .. tostring(summary.accepted_warehouses) .. " online")
-  print("Pending warehouses: " .. tostring(summary.pending_warehouses))
-  print("Global item types: " .. tostring(summary.global_item_types))
-  print("Global used: " .. (summary.global_used_percent and (tostring(summary.global_used_percent) .. "%") or "unknown"))
-  print("Last msg: " .. (state.last_message_at and (tostring(math.floor((os.epoch("utc") - state.last_message_at) / 1000)) .. "s ago") or "never"))
-  print("Last plan: " .. (state.last_plan_refresh_at and (tostring(math.floor((os.epoch("utc") - state.last_plan_refresh_at) / 1000)) .. "s ago") or "never"))
+  print("Warehouses " .. tostring(summary.online_warehouses) .. "/" .. tostring(summary.accepted_warehouses)
+    .. " online, " .. tostring(summary.pending_warehouses) .. " pending")
+  print("Items " .. tostring(summary.global_item_types)
+    .. "  Used " .. (summary.global_used_percent and (tostring(summary.global_used_percent) .. "%") or "?"))
   if schedule and schedule.paused then
     print("Schedule: paused")
   else
-    print("Schedule: every " .. tostring(schedule and schedule.interval_seconds or "?") .. "s, next in " .. remainingText)
+    print("Next sync: " .. (remainingSeconds and fmt.formatElapsed(remainingSeconds) or "unknown"))
   end
   if cycle and cycle.active then
     print("Cycle: active " .. tostring(cycle.completed_warehouses or 0) .. "/" .. tostring(cycle.total_warehouses or 0))
-    print("[x] blocked  [p] pause/resume  [c] clear cycle")
   else
     print("Cycle: idle")
-    print("[x] sync now  [p] pause/resume  [c] clear cycle")
   end
-  print("")
-  print("Press 1-9 for details")
+  print("Last msg: " .. fmt.ageFromEpoch(state.last_message_at))
+  print("Last plan: " .. fmt.ageFromEpoch(state.last_plan_refresh_at))
+  print("[x] sync [p] pause [c] clear")
+  print("[h] health [g] config [1-9] wh")
   print("")
 
   local warehouseIds = state.warehouse_registry:listedIds()
-  local lineCount = 8
+  local lineCount = 9
   for index, warehouseId in ipairs(warehouseIds) do
     if lineCount > 18 or index > 9 then
       break
@@ -102,7 +93,7 @@ function M.draw(state)
 
     local warehouseState = state.warehouses[warehouseId]
     term.write(tostring(index) .. ". ")
-    writeStatusLine(state, warehouseId, warehouseState, summary.global_slot_capacity_used)
+    writeStatusLine(state, warehouseId, warehouseState)
     lineCount = lineCount + 1
   end
 end

@@ -55,6 +55,7 @@ function M:testSummaryInputRequestsManualReleaseWhenIdle()
     execution_cycle = { active = false },
     ui = {
       view = "summary",
+      warehouse_page = "overview",
       release_requested = nil,
     },
   }
@@ -81,6 +82,7 @@ function M:testSummaryInputTogglesPauseAndMarksStateDirty()
     state_dirty = false,
     ui = {
       view = "summary",
+      warehouse_page = "overview",
     },
   }
 
@@ -106,8 +108,9 @@ function M:testDetailInputRemoveReturnsToSummary()
   local removedWarehouseId
   local state = {
     ui = {
-      view = "detail",
+      view = "warehouse",
       selected_warehouse_id = "alpha",
+      warehouse_page = "overview",
     },
   }
   local stateLib = {
@@ -121,14 +124,16 @@ function M:testDetailInputRemoveReturnsToSummary()
   lu.assertEquals(removedWarehouseId, "alpha")
   lu.assertEquals(state.ui.view, "summary")
   lu.assertNil(state.ui.selected_warehouse_id)
+  lu.assertEquals(state.ui.warehouse_page, "overview")
 end
 
 function M:testDrawFallsBackToSummaryWhenDetailWarehouseMissing()
   local controller = require("ui.controller")
   local state = {
     ui = {
-      view = "detail",
+      view = "warehouse",
       selected_warehouse_id = "missing",
+      warehouse_page = "overview",
     },
   }
   detailDrawResult = false
@@ -140,6 +145,42 @@ function M:testDrawFallsBackToSummaryWhenDetailWarehouseMissing()
   lu.assertEquals(summaryDraws, 1)
   lu.assertEquals(state.ui.view, "summary")
   lu.assertNil(state.ui.selected_warehouse_id)
+  lu.assertEquals(state.ui.warehouse_page, "overview")
+end
+
+function M:testSummaryInputOpensCoordinatorHealthPage()
+  local controller = require("ui.controller")
+  local state = {
+    ui = {
+      view = "summary",
+      warehouse_page = "overview",
+    },
+  }
+
+  controller.handleInput(state, {}, "h")
+
+  lu.assertEquals(state.ui.view, "health")
+end
+
+function M:testSummaryInputOpensWarehouseDetailOnOverviewPage()
+  local controller = require("ui.controller")
+  local state = {
+    warehouse_registry = {
+      listedIds = function()
+        return { "alpha", "beta" }
+      end,
+    },
+    ui = {
+      view = "summary",
+      warehouse_page = "network",
+    },
+  }
+
+  controller.handleInput(state, {}, "2")
+
+  lu.assertEquals(state.ui.view, "warehouse")
+  lu.assertEquals(state.ui.selected_warehouse_id, "beta")
+  lu.assertEquals(state.ui.warehouse_page, "overview")
 end
 
 return M

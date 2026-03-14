@@ -16,6 +16,7 @@ return {
     { path = "src/model/schedule.lua", source_path = "src/model/schedule.lua" },
     { path = "src/model/transfer_queue.lua", source_path = "src/model/transfer_queue.lua" },
     { path = "src/model/warehouse_registry.lua", source_path = "src/model/warehouse_registry.lua" },
+    { path = "src/ui/coordinator_view.lua", source_path = "src/ui/coordinator_view.lua" },
     { path = "src/ui/controller.lua", source_path = "src/ui/controller.lua" },
     { path = "src/ui/detail_view.lua", source_path = "src/ui/detail_view.lua" },
     { path = "src/ui/fmt.lua", source_path = "src/ui/fmt.lua" },

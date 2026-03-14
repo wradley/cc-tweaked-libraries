@@ -36,6 +36,17 @@ function M.formatElapsed(seconds)
   return tostring(hours) .. "h"
 end
 
+---Format an epoch-millisecond timestamp as a compact age for UI output.
+---@param timestamp number|nil
+---@return string
+function M.ageFromEpoch(timestamp)
+  if timestamp == nil then
+    return "never"
+  end
+
+  return M.formatElapsed(math.floor((os.epoch("utc") - timestamp) / 1000)) .. " ago"
+end
+
 ---Shorten a namespaced item id for terminal display.
 ---@param itemName any
 ---@return string

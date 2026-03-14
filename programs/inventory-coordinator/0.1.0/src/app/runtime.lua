@@ -1,8 +1,9 @@
 --- Compose coordinator runtime state and expose the warehouse-facing mutations
 --- used by the main loop and UI.
 ---@class CoordinatorUiState
----@field view '"summary"'|'"detail"'|string
+---@field view '"summary"'|'"warehouse"'|'"health"'|'"config"'|string
 ---@field selected_warehouse_id string|nil
+---@field warehouse_page '"overview"'|'"execution"'|'"network"'|string
 ---@field release_requested '"manual"'|nil|string
 
 ---Top-level coordinator runtime state shared across loops, persistence, and UI.
@@ -50,6 +51,7 @@ function M.new(config)
     ui = {
       view = "summary",
       selected_warehouse_id = nil,
+      warehouse_page = "overview",
       release_requested = nil,
     },
   }
