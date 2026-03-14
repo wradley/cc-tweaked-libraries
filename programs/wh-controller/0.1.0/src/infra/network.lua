@@ -1,7 +1,7 @@
 ---Warehouse network transport helpers for coordinator communication.
 ---@class WarehouseNetwork
 local M = {}
-local log = require("src.deps.log")
+local log = require("deps.log")
 
 local function clearLocalAssignmentState(state, persistence, reason)
   state.latest_assignment_batch = nil

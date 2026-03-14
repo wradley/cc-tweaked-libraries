@@ -2,9 +2,9 @@ local lu = require("deps.luaunit")
 local ccEnv = require("support.cc_test_env")
 
 local function freshModules()
-  package.loaded["src.deps.log"] = nil
-  package.loaded["src.app.executor"] = nil
-  return require("src.app.executor")
+  package.loaded["deps.log"] = nil
+  package.loaded["app.executor"] = nil
+  return require("app.executor")
 end
 
 local function baseConfig()

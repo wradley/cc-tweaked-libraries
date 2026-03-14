@@ -11,7 +11,10 @@ Its job is to:
 
 ## Filesystem layout
 
-- `startup.lua`: root entrypoint used by the ComputerCraft computer
+Development layout:
+
+- `startup.lua`: development launcher that runs `/src/main.lua`
+- `src/main.lua`: runnable warehouse entrypoint
 - `src/app/`: controller orchestration, snapshot building, and execution flow
 - `src/model/`: validated warehouse config
 - `src/infra/`: persistence, network, and peripheral-boundary code
@@ -19,9 +22,20 @@ Its job is to:
 - `src/util/`: small shared helpers
 - `src/deps/`: vendored runtime dependencies such as logging
 - `install/`: installer, manifest, and config template for this program
+- `tst/`: warehouse tests and test-only dependencies
+
+Installed layout:
+
+- `/startup.lua`: generated launcher that selects the active installed version and runs `/programs/wh-controller/<version>/src/main.lua`
+- `/programs/wh-controller/<version>/src/main.lua`: runnable installed warehouse entrypoint
 - `/etc/wh-controller/config.lua`: machine-local warehouse config when installed
 - `/var/wh-controller/`: persisted batch/execution state and warehouse log output when installed
-- `tst/`: warehouse tests and test-only dependencies
+
+Runtime convention:
+
+- `startup.lua` is only a launcher
+- `src/main.lua` is the executable entrypoint
+- all other files under `src/` are modules loaded with `require`
 
 ## Network flow
 

@@ -2,11 +2,10 @@ return {
   program = "wh-controller",
   role = "warehouse",
   version = "0.1.0",
-  runtime_entry = "startup.lua",
+  runtime_entry = "src/main.lua",
   files = {
-    { path = "startup.lua", source_path = "startup.lua" },
     { path = "README.md", source_path = "README.md" },
-    { path = "src/app/controller.lua", source_path = "src/app/controller.lua" },
+    { path = "src/main.lua", source_path = "src/main.lua" },
     { path = "src/app/executor.lua", source_path = "src/app/executor.lua" },
     { path = "src/app/runtime.lua", source_path = "src/app/runtime.lua" },
     { path = "src/app/snapshot.lua", source_path = "src/app/snapshot.lua" },

@@ -2,9 +2,9 @@ local lu = require("deps.luaunit")
 local ccEnv = require("support.cc_test_env")
 
 local function freshModules()
-  package.loaded["src.deps.log"] = nil
-  package.loaded["src.infra.network"] = nil
-  return require("src.infra.network")
+  package.loaded["deps.log"] = nil
+  package.loaded["infra.network"] = nil
+  return require("infra.network")
 end
 
 local function baseState()
