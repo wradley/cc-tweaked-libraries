@@ -3,6 +3,7 @@
 Minimal file-backed logger for ComputerCraft programs.
 
 Source lives at `src/log.lua`.
+Tests live under `tst/` and run through `tst/run.lua`.
 
 ## Version
 

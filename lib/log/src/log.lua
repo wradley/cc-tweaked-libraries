@@ -118,6 +118,18 @@ local function levelName(level)
   error("unknown log level: " .. tostring(level), 3)
 end
 
+---@param level integer
+---@return LogLevelName
+local function configLevelName(level)
+  for name, value in pairs(LEVELS) do
+    if value == level then
+      return name
+    end
+  end
+
+  error("unknown log level: " .. tostring(level), 3)
+end
+
 ---@param value LogTimestampMode
 ---@return LogTimestampMode
 local function normalizeTimestampMode(value)
@@ -337,7 +349,7 @@ function M.config(options)
   if options == nil then
     return {
       output = {
-        level = levelName(state.output.level),
+        level = configLevelName(state.output.level),
         file = state.output.file,
         mirror_to_term = state.output.mirror_to_term,
         timestamp = state.output.timestamp,
