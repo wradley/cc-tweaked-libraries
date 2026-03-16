@@ -2,6 +2,8 @@
 
 Minimal file-backed logger for ComputerCraft programs.
 
+Source lives at `src/log.lua`.
+
 ## Version
 
 - `0.1.0`

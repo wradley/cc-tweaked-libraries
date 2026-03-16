@@ -5,4 +5,13 @@ Backup for CC:Tweaked programs
 VS Code with [lauls](https://luals.github.io/) for language support. They also have [addons](https://luals.github.io/wiki/addons/) for CC:Tweaked.
 
 ## Organization
-Each program is organized as its own top level directory. Some include tests using LuaUnit with some minimal custom wrappers for the CC environment. Test can be run with `/tst/run.lua`
+Reusable libraries live under `lib/<name>/`.
+
+Recommended library layout:
+
+- `README.md`: library-specific docs
+- `src/`: runtime source to vendor into program repos
+- `tst/`: library-local tests
+
+Single-file libraries should use `src/<name>.lua`.
+Multi-file libraries should use `src/<module>/init.lua` plus supporting modules.
