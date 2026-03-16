@@ -15,3 +15,8 @@ Recommended library layout:
 
 Single-file libraries should use `src/<name>.lua`.
 Multi-file libraries should use `src/<module>/init.lua` plus supporting modules.
+
+## Tests
+
+- Run all shared-library tests from `tst/run.lua`.
+- Each library may also keep its own local runner under `lib/<name>/tst/run.lua`.
