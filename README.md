@@ -20,3 +20,13 @@ Multi-file libraries should use `src/<module>/init.lua` plus supporting modules.
 
 - Run all shared-library tests from `tst/run.lua`.
 - Each library may also keep its own local runner under `lib/<name>/tst/run.lua`.
+
+## Vendoring
+
+Copy only runtime source from `lib/<name>/src/` into a program repo.
+
+- Do not copy `tst/` or `test-support/` into program runtime dependencies.
+- Single-file example:
+  - `lib/log/src/log.lua` -> `<program>/src/deps/log.lua`
+- Multi-file example:
+  - `lib/rednet-contracts/src/rednet_contracts/...` -> `<program>/src/deps/rednet_contracts/...`
