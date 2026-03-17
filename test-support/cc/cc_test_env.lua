@@ -3,6 +3,9 @@ local M = {}
 local original = {}
 local currentEpoch = 0
 local printedLines = {}
+local rednetSends = {}
+local rednetBroadcasts = {}
+local rednetReceives = {}
 
 -- Fake filesystem state used by tests for writes and assertions.
 local fileContents = {}
@@ -190,10 +193,14 @@ function M.install(opts)
   printedLines = {}
   fileContents = {}
   madeDirs = {}
+  rednetSends = {}
+  rednetBroadcasts = {}
+  rednetReceives = {}
 
   original.fs = _G.fs
   original.os = _G.os
   original.print = _G.print
+  original.rednet = _G.rednet
 
   _G.fs = {
     open = open,
@@ -225,12 +232,42 @@ function M.install(opts)
     end
     printedLines[#printedLines + 1] = table.concat(values, "\t")
   end
+
+  _G.rednet = {
+    send = function(targetId, message, protocol)
+      rednetSends[#rednetSends + 1] = {
+        target_id = targetId,
+        message = message,
+        protocol = protocol,
+      }
+      return true
+    end,
+    broadcast = function(message, protocol)
+      rednetBroadcasts[#rednetBroadcasts + 1] = {
+        message = message,
+        protocol = protocol,
+      }
+      return true
+    end,
+    receive = function(protocolFilter, timeout)
+      local _ = timeout
+      for index, entry in ipairs(rednetReceives) do
+        if protocolFilter == nil or entry.protocol == protocolFilter then
+          table.remove(rednetReceives, index)
+          return entry.sender_id, entry.message, entry.protocol
+        end
+      end
+
+      return nil
+    end,
+  }
 end
 
 function M.restore()
   _G.fs = original.fs
   _G.os = original.os
   _G.print = original.print
+  _G.rednet = original.rednet
 end
 
 function M.setEpoch(epoch)
@@ -243,6 +280,22 @@ end
 
 function M.getPrintedLines()
   return copyArray(printedLines)
+end
+
+function M.queueRednetReceive(senderId, message, protocol)
+  rednetReceives[#rednetReceives + 1] = {
+    sender_id = senderId,
+    message = message,
+    protocol = protocol,
+  }
+end
+
+function M.getRednetSends()
+  return copyArray(rednetSends)
+end
+
+function M.getRednetBroadcasts()
+  return copyArray(rednetBroadcasts)
 end
 
 return M

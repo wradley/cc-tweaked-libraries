@@ -1,5 +1,6 @@
 local TEST_RUNNERS = {
   "lib/log/tst/run.lua",
+  "lib/rednet-contracts/tst/run.lua",
 }
 
 for _, path in ipairs(TEST_RUNNERS) do
