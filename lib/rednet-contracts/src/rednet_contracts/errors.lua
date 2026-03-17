@@ -1,5 +1,3 @@
----Structured error helpers shared by discovery, RPC, and service validation.
----@class RednetContractsErrors
 local M = {}
 
 ---@class RednetContractsError

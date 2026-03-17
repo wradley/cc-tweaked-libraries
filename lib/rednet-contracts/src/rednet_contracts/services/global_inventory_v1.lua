@@ -19,8 +19,6 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field method string
 ---@field params table
 
----`global_inventory_v1` service helpers layered on top of `mrpc_v1`.
----@class RednetContractsGlobalInventoryV1
 local M = {
   NAME = "global_inventory",
   VERSION = 1,

@@ -1,7 +1,5 @@
 local errors = require("rednet_contracts.errors")
 
----Small validation helpers for contract payload schemas.
----@class RednetContractsSchemaValidation
 local M = {}
 
 local function fail(code, path, message)

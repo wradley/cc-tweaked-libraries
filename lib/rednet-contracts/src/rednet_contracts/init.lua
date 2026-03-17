@@ -1,10 +1,3 @@
----Shared discovery and message-RPC contract helpers for rednet-based services.
----@class RednetContracts
----@field VERSION string
----@field errors RednetContractsErrors
----@field discovery_v1 RednetContractsDiscoveryV1
----@field warehouse_v1 RednetContractsWarehouseV1
----@field global_inventory_v1 RednetContractsGlobalInventoryV1
 local M = {
   VERSION = "0.1.0",
 }

@@ -21,11 +21,6 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field rednet_protocol string|nil
 ---@field timeout number|nil
 
----Discovery v1 heartbeat builders, validators, and rednet helpers.
----@class RednetContractsDiscoveryV1
----@field HEARTBEAT_TYPE string
----@field REDNET_PROTOCOL string
----@field DISCOVERY_VERSION integer
 local M = {
   HEARTBEAT_TYPE = "device_discovery_heartbeat",
   REDNET_PROTOCOL = "rc.discovery_v1",
@@ -69,10 +64,7 @@ local function validateProtocolEntry(entry, path)
   return true
 end
 
----Validate one discovery heartbeat payload.
----@param message any
----@return boolean, table|nil
-function M.validateHeartbeat(message)
+local function validateHeartbeat(message)
   local ok, err = schema.requireTable(message, "message")
   if not ok then
     return false, err
@@ -124,7 +116,7 @@ local function buildHeartbeat(fields)
   message.type = M.HEARTBEAT_TYPE
   message.discovery_version = M.DISCOVERY_VERSION
 
-  local ok, err = M.validateHeartbeat(message)
+  local ok, err = validateHeartbeat(message)
   if not ok then
     errors.raise(err, 1)
   end
@@ -160,7 +152,7 @@ function M.receive(opts)
     })
   end
 
-  local ok, err = M.validateHeartbeat(message)
+  local ok, err = validateHeartbeat(message)
   if not ok then
     return nil, senderId, err
   end

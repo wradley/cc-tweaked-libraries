@@ -28,8 +28,6 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field request_id string|nil
 ---@field details table|nil
 
----MRPC v1 envelope builders, validators, and rednet helpers.
----@class RednetContractsMrpcV1
 local M = {
   REDNET_PROTOCOL = "rc.mrpc_v1",
 }

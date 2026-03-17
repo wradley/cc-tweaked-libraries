@@ -38,26 +38,25 @@ function M.testBroadcastAddsTypeAndValidatesShape()
 
   lu.assertEquals(heartbeat.type, "device_discovery_heartbeat")
   lu.assertEquals(heartbeat.discovery_version, contracts.discovery_v1.DISCOVERY_VERSION)
-  lu.assertTrue(select(1, contracts.discovery_v1.validateHeartbeat(heartbeat)))
+  lu.assertEquals(env.getRednetBroadcasts()[1].message.device_id, "warehouse-east")
 end
 
-function M.testHeartbeatRejectsInvalidProtocolRole()
+function M.testBroadcastRejectsInvalidProtocolRole()
   local contracts = freshContracts()
 
-  local ok, err = contracts.discovery_v1.validateHeartbeat({
-    type = "device_discovery_heartbeat",
-    discovery_version = contracts.discovery_v1.DISCOVERY_VERSION,
-    device_id = "warehouse-east",
-    device_type = "warehouse_controller",
-    sent_at = 10,
-    protocols = {
-      { name = "warehouse", version = 1, role = "peer" },
-    },
-  })
+  local ok, err = pcall(function()
+    contracts.discovery_v1.broadcast({
+      device_id = "warehouse-east",
+      device_type = "warehouse_controller",
+      sent_at = 10,
+      protocols = {
+        { name = "warehouse", version = 1, role = "peer" },
+      },
+    })
+  end)
 
   lu.assertFalse(ok)
-  lu.assertEquals(err.code, "invalid_value")
-  lu.assertEquals(err.details.path, "message.protocols[1].role")
+  lu.assertStrContains(err, "message.protocols[1].role")
 end
 
 function M.testBroadcastUsesDefaultRednetProtocol()
@@ -94,6 +93,27 @@ function M.testReceiveReturnsHeartbeatAndSenderId()
   lu.assertNil(err)
   lu.assertEquals(senderId, 12)
   lu.assertEquals(heartbeat.device_id, "warehouse-east")
+end
+
+function M.testReceiveRejectsInvalidHeartbeat()
+  local contracts = freshContracts()
+
+  env.queueRednetReceive(12, {
+    type = "device_discovery_heartbeat",
+    discovery_version = contracts.discovery_v1.DISCOVERY_VERSION,
+    device_id = "warehouse-east",
+    device_type = "warehouse_controller",
+    sent_at = 10,
+    protocols = {
+      { name = "warehouse", version = 1, role = "peer" },
+    },
+  }, "rc.discovery_v1")
+
+  local heartbeat, senderId, err = contracts.discovery_v1.receive()
+
+  lu.assertNil(heartbeat)
+  lu.assertEquals(senderId, 12)
+  lu.assertEquals(err.details.path, "message.protocols[1].role")
 end
 
 return M
