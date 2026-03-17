@@ -86,7 +86,7 @@ function M.newRequestId(prefix)
 end
 
 ---Validate a common RPC request envelope.
----@param message table
+---@param message any
 ---@return boolean, table|nil
 function M.validateRequest(message)
   local ok, err = schema.requireTable(message, "message")
@@ -127,7 +127,7 @@ function M.validateRequest(message)
 end
 
 ---Validate a common RPC response envelope.
----@param message table
+---@param message any
 ---@return boolean, table|nil
 function M.validateResponse(message)
   local ok, err = schema.requireTable(message, "message")
@@ -268,6 +268,7 @@ function M.receiveRequest(opts)
     return senderId, nil, err
   end
 
+  ---@cast message MrpcRequestEnvelope
   return senderId, message, nil
 end
 
@@ -332,6 +333,7 @@ function M.call(rednetId, service, method, params, opts)
       if not ok then
         return nil, err
       end
+      ---@cast response MrpcResponseEnvelope
 
       if response.request_id ~= requestId then
         return nil, errors.new("request_id_mismatch", "rpc response request_id did not match the request", {

@@ -51,7 +51,7 @@ function M.format(err)
 end
 
 ---Raise a structured contract error using Lua's normal error mechanism.
----@param err table
+---@param err any
 ---@param level integer|nil
 ---@return nil
 function M.raise(err, level)

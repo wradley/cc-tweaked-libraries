@@ -2,10 +2,6 @@ local errors = require("rednet_contracts.errors")
 local mrpc = require("rednet_contracts.mrpc_v1")
 local schema = require("rednet_contracts.schema_validation")
 
----@class WarehouseGetOverviewRequestParams
-
----@class WarehouseGetSnapshotRequestParams
-
 ---@class WarehouseTransferItem
 ---@field name string
 ---@field count integer
@@ -33,6 +29,11 @@ local schema = require("rednet_contracts.schema_validation")
 ---@class WarehouseGetTransferRequestStatusParams
 ---@field transfer_request_id string
 
+---@class WarehouseServiceDefaults
+---@field rednet_protocol string|nil
+---@field timeout number|nil
+---@field auto_reply_errors boolean|nil
+
 ---@class WarehouseServiceCallOptions
 ---@field rednet_protocol string|nil
 ---@field timeout number|nil
@@ -55,6 +56,54 @@ M.SERVICE = {
   name = M.NAME,
   version = M.VERSION,
 }
+
+local config = {
+  rednet_protocol = nil,
+  timeout = nil,
+  auto_reply_errors = true,
+}
+
+local function copyTable(source)
+  local target = {}
+  for key, value in pairs(source or {}) do
+    target[key] = value
+  end
+  return target
+end
+
+local function mergeCallOptions(opts)
+  local merged = copyTable(config)
+  for key, value in pairs(opts or {}) do
+    merged[key] = value
+  end
+  return merged
+end
+
+local function validateDefaults(options, path)
+  local ok, err = schema.requireTable(options, path)
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.optionalString(options.rednet_protocol, path .. ".rednet_protocol")
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.optionalNumber(options.timeout, path .. ".timeout")
+  if not ok then
+    return false, err
+  end
+
+  if options.auto_reply_errors ~= nil then
+    ok, err = schema.requireBoolean(options.auto_reply_errors, path .. ".auto_reply_errors")
+    if not ok then
+      return false, err
+    end
+  end
+
+  return true
+end
 
 local function ensureMethod(method)
   if method == M.GET_OVERVIEW
@@ -202,17 +251,11 @@ local function validateOverviewLastExecution(value, path)
   return true
 end
 
----Validate `warehouse_v1.get_overview()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateGetOverviewParams(params)
+local function validateGetOverviewParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
----Validate `warehouse_v1.get_overview()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateGetOverviewResult(result)
+local function validateGetOverviewResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -264,17 +307,11 @@ function M.validateGetOverviewResult(result)
   return true
 end
 
----Validate `warehouse_v1.get_snapshot()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateGetSnapshotParams(params)
+local function validateGetSnapshotParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
----Validate `warehouse_v1.get_snapshot()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateGetSnapshotResult(result)
+local function validateGetSnapshotResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -372,10 +409,7 @@ local function validateAssignment(assignment, path)
   return true
 end
 
----Validate `warehouse_v1.assign_transfer_request()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateAssignTransferRequestParams(params)
+local function validateAssignTransferRequestParams(params)
   local ok, err = schema.requireTable(params, "params")
   if not ok then
     return false, err
@@ -411,10 +445,7 @@ function M.validateAssignTransferRequestParams(params)
   return true
 end
 
----Validate `warehouse_v1.assign_transfer_request()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateAssignTransferRequestResult(result)
+local function validateAssignTransferRequestResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -442,10 +473,7 @@ function M.validateAssignTransferRequestResult(result)
   return true
 end
 
----Validate `warehouse_v1.get_transfer_request_status()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateGetTransferRequestStatusParams(params)
+local function validateGetTransferRequestStatusParams(params)
   local ok, err = schema.requireTable(params, "params")
   if not ok then
     return false, err
@@ -477,10 +505,7 @@ local function validateTransferStatusAssignment(entry, path)
   return true
 end
 
----Validate `warehouse_v1.get_transfer_request_status()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateGetTransferRequestStatusResult(result)
+local function validateGetTransferRequestStatusResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -515,27 +540,24 @@ end
 
 local VALIDATORS = {
   get_overview = {
-    params = M.validateGetOverviewParams,
-    result = M.validateGetOverviewResult,
+    params = validateGetOverviewParams,
+    result = validateGetOverviewResult,
   },
   get_snapshot = {
-    params = M.validateGetSnapshotParams,
-    result = M.validateGetSnapshotResult,
+    params = validateGetSnapshotParams,
+    result = validateGetSnapshotResult,
   },
   assign_transfer_request = {
-    params = M.validateAssignTransferRequestParams,
-    result = M.validateAssignTransferRequestResult,
+    params = validateAssignTransferRequestParams,
+    result = validateAssignTransferRequestResult,
   },
   get_transfer_request_status = {
-    params = M.validateGetTransferRequestStatusParams,
-    result = M.validateGetTransferRequestStatusResult,
+    params = validateGetTransferRequestStatusParams,
+    result = validateGetTransferRequestStatusResult,
   },
 }
 
----Validate a full `warehouse_v1` RPC request.
----@param message table
----@return boolean, string|nil, table|nil
-function M.validateRequest(message)
+local function validateRequest(message)
   local ok, err = mrpc.validateRequest(message)
   if not ok then
     return false, nil, err
@@ -560,11 +582,7 @@ function M.validateRequest(message)
   return true, message.method, nil
 end
 
----Validate a `warehouse_v1` RPC response for one method.
----@param method string
----@param message table
----@return boolean, table|nil
-function M.validateResponseForMethod(method, message)
+local function validateResponseForMethod(method, message)
   local ok, err = ensureMethod(method)
   if not ok then
     return false, err
@@ -588,13 +606,7 @@ function M.validateResponseForMethod(method, message)
   return VALIDATORS[method].result(message.result)
 end
 
----Build a validated `warehouse_v1` request envelope.
----@param requestId string
----@param method string
----@param params table
----@param sentAt integer
----@return table
-function M.buildRequest(requestId, method, params, sentAt)
+local function buildRequest(requestId, method, params, sentAt)
   local ok, err = ensureMethod(method)
   if not ok then
     errors.raise(err, 1)
@@ -608,13 +620,7 @@ function M.buildRequest(requestId, method, params, sentAt)
   return mrpc.buildRequest(M.SERVICE, requestId, method, params or {}, sentAt)
 end
 
----Build a validated successful `warehouse_v1` response envelope.
----@param requestId string
----@param method string
----@param result table
----@param sentAt integer
----@return table
-function M.buildResponse(requestId, method, result, sentAt)
+local function buildResponse(requestId, method, result, sentAt)
   local ok, err = ensureMethod(method)
   if not ok then
     errors.raise(err, 1)
@@ -628,24 +634,13 @@ function M.buildResponse(requestId, method, result, sentAt)
   return mrpc.buildResponse(M.SERVICE, requestId, result or {}, sentAt)
 end
 
----Build a validated non-success `warehouse_v1` response envelope.
----@param requestId string
----@param code string
----@param messageText string
----@param sentAt integer
----@param details table|nil
----@return table
-function M.buildErrorResponse(requestId, code, messageText, sentAt, details)
-  return mrpc.buildErrorResponse(M.SERVICE, requestId, code, messageText, sentAt, details)
-end
-
 local function callMethod(rednetId, method, params, opts)
-  local response, err = mrpc.call(rednetId, M.SERVICE, method, params or {}, opts)
+  local response, err = mrpc.call(rednetId, M.SERVICE, method, params or {}, mergeCallOptions(opts))
   if not response then
     return nil, err
   end
 
-  local ok, validationErr = M.validateResponseForMethod(method, response)
+  local ok, validationErr = validateResponseForMethod(method, response)
   if not ok then
     return nil, validationErr
   end
@@ -657,22 +652,40 @@ local function callMethod(rednetId, method, params, opts)
   return response.result, nil
 end
 
+---Return the current service defaults, or merge new defaults into them.
+---@param options WarehouseServiceDefaults|nil
+---@return WarehouseServiceDefaults
+function M.config(options)
+  if options == nil then
+    return copyTable(config)
+  end
+
+  local ok, err = validateDefaults(options, "options")
+  if not ok then
+    errors.raise(err, 1)
+  end
+
+  for key, value in pairs(options) do
+    config[key] = value
+  end
+
+  return copyTable(config)
+end
+
 ---Call `warehouse_v1.get_overview()`.
 ---@param rednetId integer
----@param params WarehouseGetOverviewRequestParams|nil
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.getOverview(rednetId, params, opts)
-  return callMethod(rednetId, M.GET_OVERVIEW, params or {}, opts)
+function M.getOverview(rednetId, opts)
+  return callMethod(rednetId, M.GET_OVERVIEW, {}, opts)
 end
 
 ---Call `warehouse_v1.get_snapshot()`.
 ---@param rednetId integer
----@param params WarehouseGetSnapshotRequestParams|nil
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.getSnapshot(rednetId, params, opts)
-  return callMethod(rednetId, M.GET_SNAPSHOT, params or {}, opts)
+function M.getSnapshot(rednetId, opts)
+  return callMethod(rednetId, M.GET_SNAPSHOT, {}, opts)
 end
 
 ---Call `warehouse_v1.assign_transfer_request()`.
@@ -695,21 +708,22 @@ end
 
 ---Receive and validate one `warehouse_v1` request.
 ---@param opts WarehouseServiceCallOptions|nil
----@return integer|nil, table|nil, string|nil, table|nil
+---@return integer|nil, MrpcRequestEnvelope|nil, string|nil, table|nil
 function M.receiveRequest(opts)
-  local senderId, request, err = mrpc.receiveRequest(opts)
+  local effective = mergeCallOptions(opts)
+  local senderId, request, err = mrpc.receiveRequest(effective)
   if not request then
     return senderId, nil, nil, err
   end
 
-  local ok, method, validationErr = M.validateRequest(request)
+  local ok, method, validationErr = validateRequest(request)
   if ok then
     return senderId, request, method, nil
   end
 
-  if (opts == nil or opts.auto_reply_errors ~= false) and senderId ~= nil and request.request_id ~= nil then
+  if effective.auto_reply_errors ~= false and senderId ~= nil and request.request_id ~= nil then
     mrpc.replyError(senderId, request, validationErr.code, validationErr.message, {
-      rednet_protocol = opts and opts.rednet_protocol or nil,
+      rednet_protocol = effective.rednet_protocol,
       details = validationErr.details,
     })
   end
@@ -725,12 +739,12 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table
 function M.replySuccess(rednetId, request, method, result, opts)
-  local ok, err = VALIDATORS[method].result(result or {})
-  if not ok then
-    errors.raise(err, 1)
-  end
+  local response = buildResponse(request.request_id, method, result or {}, os.epoch("utc"))
+  local effective = mergeCallOptions(opts)
 
-  return mrpc.replySuccess(rednetId, request, result or {}, opts)
+  rednet.send(rednetId, response, effective.rednet_protocol or mrpc.REDNET_PROTOCOL)
+
+  return response
 end
 
 ---Reply to a validated `warehouse_v1` request with a structured error.
@@ -741,7 +755,11 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table
 function M.replyError(rednetId, request, code, messageText, opts)
-  return mrpc.replyError(rednetId, request, code, messageText, opts)
+  local effective = mergeCallOptions(opts)
+  return mrpc.replyError(rednetId, request, code, messageText, {
+    rednet_protocol = effective.rednet_protocol,
+    details = effective.details,
+  })
 end
 
 return M

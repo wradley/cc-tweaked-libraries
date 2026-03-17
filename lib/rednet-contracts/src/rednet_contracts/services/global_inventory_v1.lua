@@ -2,13 +2,10 @@ local errors = require("rednet_contracts.errors")
 local mrpc = require("rednet_contracts.mrpc_v1")
 local schema = require("rednet_contracts.schema_validation")
 
----@class GlobalInventoryGetOverviewRequestParams
-
----@class GlobalInventoryPauseSyncRequestParams
-
----@class GlobalInventoryResumeSyncRequestParams
-
----@class GlobalInventorySyncNowRequestParams
+---@class GlobalInventoryServiceDefaults
+---@field rednet_protocol string|nil
+---@field timeout number|nil
+---@field auto_reply_errors boolean|nil
 
 ---@class GlobalInventoryServiceCallOptions
 ---@field rednet_protocol string|nil
@@ -33,6 +30,54 @@ M.SERVICE = {
   version = M.VERSION,
 }
 
+local config = {
+  rednet_protocol = nil,
+  timeout = nil,
+  auto_reply_errors = true,
+}
+
+local function copyTable(source)
+  local target = {}
+  for key, value in pairs(source or {}) do
+    target[key] = value
+  end
+  return target
+end
+
+local function mergeCallOptions(opts)
+  local merged = copyTable(config)
+  for key, value in pairs(opts or {}) do
+    merged[key] = value
+  end
+  return merged
+end
+
+local function validateDefaults(options, path)
+  local ok, err = schema.requireTable(options, path)
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.optionalString(options.rednet_protocol, path .. ".rednet_protocol")
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.optionalNumber(options.timeout, path .. ".timeout")
+  if not ok then
+    return false, err
+  end
+
+  if options.auto_reply_errors ~= nil then
+    ok, err = schema.requireBoolean(options.auto_reply_errors, path .. ".auto_reply_errors")
+    if not ok then
+      return false, err
+    end
+  end
+
+  return true
+end
+
 local function ensureMethod(method)
   if method == M.GET_OVERVIEW
     or method == M.PAUSE_SYNC
@@ -49,10 +94,7 @@ local function validateIssueList(value, path)
   return schema.requireTable(value, path)
 end
 
----Validate `global_inventory_v1.get_overview()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateGetOverviewParams(params)
+local function validateGetOverviewParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
@@ -192,10 +234,7 @@ local function validateInventorySummary(value, path)
   return true
 end
 
----Validate `global_inventory_v1.get_overview()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateGetOverviewResult(result)
+local function validateGetOverviewResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -239,24 +278,15 @@ function M.validateGetOverviewResult(result)
   return true
 end
 
----Validate `global_inventory_v1.pause_sync()` request params.
----@param params table
----@return boolean, table|nil
-function M.validatePauseSyncParams(params)
+local function validatePauseSyncParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
----Validate `global_inventory_v1.resume_sync()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateResumeSyncParams(params)
+local function validateResumeSyncParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
----Validate `global_inventory_v1.sync_now()` request params.
----@param params table
----@return boolean, table|nil
-function M.validateSyncNowParams(params)
+local function validateSyncNowParams(params)
   return schema.requireEmptyTable(params, "params")
 end
 
@@ -293,24 +323,15 @@ local function validatePausedResult(result, expectedPaused)
   return true
 end
 
----Validate `global_inventory_v1.pause_sync()` response result.
----@param result table
----@return boolean, table|nil
-function M.validatePauseSyncResult(result)
+local function validatePauseSyncResult(result)
   return validatePausedResult(result, true)
 end
 
----Validate `global_inventory_v1.resume_sync()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateResumeSyncResult(result)
+local function validateResumeSyncResult(result)
   return validatePausedResult(result, false)
 end
 
----Validate `global_inventory_v1.sync_now()` response result.
----@param result table
----@return boolean, table|nil
-function M.validateSyncNowResult(result)
+local function validateSyncNowResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
     return false, err
@@ -341,27 +362,24 @@ end
 
 local VALIDATORS = {
   get_overview = {
-    params = M.validateGetOverviewParams,
-    result = M.validateGetOverviewResult,
+    params = validateGetOverviewParams,
+    result = validateGetOverviewResult,
   },
   pause_sync = {
-    params = M.validatePauseSyncParams,
-    result = M.validatePauseSyncResult,
+    params = validatePauseSyncParams,
+    result = validatePauseSyncResult,
   },
   resume_sync = {
-    params = M.validateResumeSyncParams,
-    result = M.validateResumeSyncResult,
+    params = validateResumeSyncParams,
+    result = validateResumeSyncResult,
   },
   sync_now = {
-    params = M.validateSyncNowParams,
-    result = M.validateSyncNowResult,
+    params = validateSyncNowParams,
+    result = validateSyncNowResult,
   },
 }
 
----Validate a full `global_inventory_v1` RPC request.
----@param message table
----@return boolean, string|nil, table|nil
-function M.validateRequest(message)
+local function validateRequest(message)
   local ok, err = mrpc.validateRequest(message)
   if not ok then
     return false, nil, err
@@ -386,11 +404,7 @@ function M.validateRequest(message)
   return true, message.method, nil
 end
 
----Validate a `global_inventory_v1` RPC response for one method.
----@param method string
----@param message table
----@return boolean, table|nil
-function M.validateResponseForMethod(method, message)
+local function validateResponseForMethod(method, message)
   local ok, err = ensureMethod(method)
   if not ok then
     return false, err
@@ -414,13 +428,27 @@ function M.validateResponseForMethod(method, message)
   return VALIDATORS[method].result(message.result)
 end
 
+local function buildResponse(requestId, method, result, sentAt)
+  local ok, err = ensureMethod(method)
+  if not ok then
+    errors.raise(err, 1)
+  end
+
+  ok, err = VALIDATORS[method].result(result or {})
+  if not ok then
+    errors.raise(err, 1)
+  end
+
+  return mrpc.buildResponse(M.SERVICE, requestId, result or {}, sentAt)
+end
+
 local function callMethod(rednetId, method, params, opts)
-  local response, err = mrpc.call(rednetId, M.SERVICE, method, params or {}, opts)
+  local response, err = mrpc.call(rednetId, M.SERVICE, method, params or {}, mergeCallOptions(opts))
   if not response then
     return nil, err
   end
 
-  local ok, validationErr = M.validateResponseForMethod(method, response)
+  local ok, validationErr = validateResponseForMethod(method, response)
   if not ok then
     return nil, validationErr
   end
@@ -432,59 +460,76 @@ local function callMethod(rednetId, method, params, opts)
   return response.result, nil
 end
 
+---Return the current service defaults, or merge new defaults into them.
+---@param options GlobalInventoryServiceDefaults|nil
+---@return GlobalInventoryServiceDefaults
+function M.config(options)
+  if options == nil then
+    return copyTable(config)
+  end
+
+  local ok, err = validateDefaults(options, "options")
+  if not ok then
+    errors.raise(err, 1)
+  end
+
+  for key, value in pairs(options) do
+    config[key] = value
+  end
+
+  return copyTable(config)
+end
+
 ---Call `global_inventory_v1.get_overview()`.
 ---@param rednetId integer
----@param params GlobalInventoryGetOverviewRequestParams|nil
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.getOverview(rednetId, params, opts)
-  return callMethod(rednetId, M.GET_OVERVIEW, params or {}, opts)
+function M.getOverview(rednetId, opts)
+  return callMethod(rednetId, M.GET_OVERVIEW, {}, opts)
 end
 
 ---Call `global_inventory_v1.pause_sync()`.
 ---@param rednetId integer
----@param params GlobalInventoryPauseSyncRequestParams|nil
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.pauseSync(rednetId, params, opts)
-  return callMethod(rednetId, M.PAUSE_SYNC, params or {}, opts)
+function M.pauseSync(rednetId, opts)
+  return callMethod(rednetId, M.PAUSE_SYNC, {}, opts)
 end
 
 ---Call `global_inventory_v1.resume_sync()`.
 ---@param rednetId integer
----@param params GlobalInventoryResumeSyncRequestParams|nil
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.resumeSync(rednetId, params, opts)
-  return callMethod(rednetId, M.RESUME_SYNC, params or {}, opts)
+function M.resumeSync(rednetId, opts)
+  return callMethod(rednetId, M.RESUME_SYNC, {}, opts)
 end
 
 ---Call `global_inventory_v1.sync_now()`.
 ---@param rednetId integer
----@param params GlobalInventorySyncNowRequestParams|nil
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
-function M.syncNow(rednetId, params, opts)
-  return callMethod(rednetId, M.SYNC_NOW, params or {}, opts)
+function M.syncNow(rednetId, opts)
+  return callMethod(rednetId, M.SYNC_NOW, {}, opts)
 end
 
 ---Receive and validate one `global_inventory_v1` request.
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return integer|nil, table|nil, string|nil, table|nil
+---@return integer|nil, MrpcRequestEnvelope|nil, string|nil, table|nil
 function M.receiveRequest(opts)
-  local senderId, request, err = mrpc.receiveRequest(opts)
+  local effective = mergeCallOptions(opts)
+  local senderId, request, err = mrpc.receiveRequest(effective)
   if not request then
     return senderId, nil, nil, err
   end
 
-  local ok, method, validationErr = M.validateRequest(request)
+  local ok, method, validationErr = validateRequest(request)
   if ok then
     return senderId, request, method, nil
   end
 
-  if (opts == nil or opts.auto_reply_errors ~= false) and senderId ~= nil and request.request_id ~= nil then
+  if effective.auto_reply_errors ~= false and senderId ~= nil and request.request_id ~= nil then
     mrpc.replyError(senderId, request, validationErr.code, validationErr.message, {
-      rednet_protocol = opts and opts.rednet_protocol or nil,
+      rednet_protocol = effective.rednet_protocol,
       details = validationErr.details,
     })
   end
@@ -500,12 +545,12 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table
 function M.replySuccess(rednetId, request, method, result, opts)
-  local ok, err = VALIDATORS[method].result(result or {})
-  if not ok then
-    errors.raise(err, 1)
-  end
+  local response = buildResponse(request.request_id, method, result or {}, os.epoch("utc"))
+  local effective = mergeCallOptions(opts)
 
-  return mrpc.replySuccess(rednetId, request, result or {}, opts)
+  rednet.send(rednetId, response, effective.rednet_protocol or mrpc.REDNET_PROTOCOL)
+
+  return response
 end
 
 ---Reply to a validated `global_inventory_v1` request with a structured error.
@@ -516,7 +561,11 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table
 function M.replyError(rednetId, request, code, messageText, opts)
-  return mrpc.replyError(rednetId, request, code, messageText, opts)
+  local effective = mergeCallOptions(opts)
+  return mrpc.replyError(rednetId, request, code, messageText, {
+    rednet_protocol = effective.rednet_protocol,
+    details = effective.details,
+  })
 end
 
 return M

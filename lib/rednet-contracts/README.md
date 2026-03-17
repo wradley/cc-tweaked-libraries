@@ -30,6 +30,14 @@ This library implements the initial contract surface from `AGENTS/specs/07-redne
     - `warehouse_v1`
     - `global_inventory_v1`
 
+Service modules expose:
+
+- `config(options?)`
+- high-level request helpers such as `getSnapshot(...)` and `pauseSync(...)`
+- `receiveRequest(...)`
+- `replySuccess(...)`
+- `replyError(...)`
+
 ### Validation style
 
 Validators return:
@@ -72,9 +80,11 @@ contracts.discovery_v1.broadcast({
   },
 })
 
-local snapshot, err = contracts.warehouse_v1.getSnapshot(17, {}, {
+contracts.warehouse_v1.config({
   timeout = 2,
 })
+
+local snapshot, err = contracts.warehouse_v1.getSnapshot(17)
 
 if not snapshot then
   error(contracts.errors.format(err), 0)

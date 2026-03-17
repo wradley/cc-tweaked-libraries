@@ -27,32 +27,39 @@ function M.testOverviewRequiresTransferCycleField()
   local contracts = freshContracts()
   local protocol = contracts.global_inventory_v1
 
-  local ok, err = protocol.validateGetOverviewResult({
-    coordinator_id = "coordinator-1",
-    observed_at = 100,
-    schedule = {
-      paused = false,
-      sync_interval_seconds = 30,
-      next_sync_due_at = 130,
+  env.queueRednetReceive(44, {
+    type = "response",
+    protocol = {
+      name = "global_inventory",
+      version = 1,
     },
-    cycle = {
-      active = false,
-      kind = nil,
-      started_at = nil,
-      completed_warehouses = 0,
-      total_warehouses = 3,
+    request_id = "req-invalid",
+    ok = true,
+    result = {
+      coordinator_id = "coordinator-1",
+      observed_at = 100,
+      schedule = {
+        paused = false,
+        sync_interval_seconds = 30,
+        next_sync_due_at = 130,
+      },
+      warehouses = {},
+      inventory_summary = {
+        total_item_types = 5,
+        total_item_count = 100,
+        slot_capacity_used = 10,
+        slot_capacity_total = 20,
+      },
+      recent_issues = {},
     },
-    warehouses = {},
-    inventory_summary = {
-      total_item_types = 5,
-      total_item_count = 100,
-      slot_capacity_used = 10,
-      slot_capacity_total = 20,
-    },
-    recent_issues = {},
+    sent_at = 101,
+  }, "rc.mrpc_v1")
+
+  local result, err = protocol.getOverview(44, {
+    request_id = "req-invalid",
   })
 
-  lu.assertFalse(ok)
+  lu.assertNil(result)
   lu.assertEquals(err.details.path, "result.transfer_cycle")
 end
 
@@ -60,43 +67,58 @@ function M.testOverviewResponseUsesTransferCycleShape()
   local contracts = freshContracts()
   local protocol = contracts.global_inventory_v1
 
-  local response = protocol.buildResponse("req-4", "get_overview", {
-    coordinator_id = "coordinator-1",
-    observed_at = 100,
-    schedule = {
-      paused = false,
-      sync_interval_seconds = 30,
-      next_sync_due_at = 130,
+  env.queueRednetReceive(44, {
+    type = "response",
+    protocol = {
+      name = "global_inventory",
+      version = 1,
     },
-    transfer_cycle = {
-      active = true,
-      kind = "rebalance",
-      started_at = 80,
-      completed_warehouses = 1,
-      total_warehouses = 3,
-    },
-    warehouses = {
-      {
-        warehouse_id = "wh-1",
-        warehouse_address = "east",
-        state = "accepted",
-        online = true,
-        last_heartbeat_at = 95,
-        last_snapshot_at = 96,
-        last_transfer_request_id = "tr-1",
-        last_transfer_request_status = "queued",
+    request_id = "req-4",
+    ok = true,
+    result = {
+      coordinator_id = "coordinator-1",
+      observed_at = 100,
+      schedule = {
+        paused = false,
+        sync_interval_seconds = 30,
+        next_sync_due_at = 130,
       },
+      transfer_cycle = {
+        active = true,
+        kind = "rebalance",
+        started_at = 80,
+        completed_warehouses = 1,
+        total_warehouses = 3,
+      },
+      warehouses = {
+        {
+          warehouse_id = "wh-1",
+          warehouse_address = "east",
+          state = "accepted",
+          online = true,
+          last_heartbeat_at = 95,
+          last_snapshot_at = 96,
+          last_transfer_request_id = "tr-1",
+          last_transfer_request_status = "queued",
+        },
+      },
+      inventory_summary = {
+        total_item_types = 5,
+        total_item_count = 100,
+        slot_capacity_used = 10,
+        slot_capacity_total = 20,
+      },
+      recent_issues = {},
     },
-    inventory_summary = {
-      total_item_types = 5,
-      total_item_count = 100,
-      slot_capacity_used = 10,
-      slot_capacity_total = 20,
-    },
-    recent_issues = {},
-  }, 101)
+    sent_at = 101,
+  }, "rc.mrpc_v1")
 
-  lu.assertTrue(select(1, protocol.validateResponseForMethod("get_overview", response)))
+  local result, err = protocol.getOverview(44, {
+    request_id = "req-4",
+  })
+
+  lu.assertNil(err)
+  lu.assertTrue(result.transfer_cycle.active)
 end
 
 function M.testPauseSyncCallsServiceWrapper()
@@ -120,13 +142,49 @@ function M.testPauseSyncCallsServiceWrapper()
     sent_at = 101,
   }, "rc.mrpc_v1")
 
-  local result, err = protocol.pauseSync(44, {}, {
+  local result, err = protocol.pauseSync(44, {
     request_id = "req-2",
   })
 
   lu.assertNil(err)
   lu.assertTrue(result.paused)
   lu.assertEquals(env.getRednetSends()[1].message.method, "pause_sync")
+  lu.assertEquals(env.getRednetSends()[1].message.params, {})
+end
+
+function M.testConfigProvidesStickyDefaults()
+  local contracts = freshContracts()
+  local protocol = contracts.global_inventory_v1
+
+  protocol.config({
+    rednet_protocol = "custom.inventory",
+    timeout = 4,
+  })
+
+  env.queueRednetReceive(44, {
+    type = "response",
+    protocol = {
+      name = "global_inventory",
+      version = 1,
+    },
+    request_id = "req-5",
+    ok = true,
+    result = {
+      coordinator_id = "coordinator-1",
+      paused = false,
+      changed = true,
+      sent_at = 101,
+    },
+    sent_at = 101,
+  }, "custom.inventory")
+
+  local result, err = protocol.resumeSync(44, {
+    request_id = "req-5",
+  })
+
+  lu.assertNil(err)
+  lu.assertFalse(result.paused)
+  lu.assertEquals(env.getRednetSends()[1].protocol, "custom.inventory")
 end
 
 return M
