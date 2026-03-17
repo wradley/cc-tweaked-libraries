@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil
 local lu = require("deps.luaunit")
 local env = require("cc.cc_test_env")
 
@@ -23,10 +24,10 @@ function M.tearDown()
   env.restore()
 end
 
-function M.testBuildHeartbeatAddsTypeAndValidatesShape()
+function M.testBroadcastAddsTypeAndValidatesShape()
   local contracts = freshContracts()
 
-  local heartbeat = contracts.discovery_v1.buildHeartbeat({
+  local heartbeat = contracts.discovery_v1.broadcast({
     device_id = "warehouse-east",
     device_type = "warehouse_controller",
     sent_at = 10,
@@ -72,6 +73,27 @@ function M.testBroadcastUsesDefaultRednetProtocol()
   })
 
   lu.assertEquals(env.getRednetBroadcasts()[1].protocol, "rc.discovery_v1")
+end
+
+function M.testReceiveReturnsHeartbeatAndSenderId()
+  local contracts = freshContracts()
+
+  env.queueRednetReceive(12, {
+    type = "device_discovery_heartbeat",
+    discovery_version = contracts.discovery_v1.DISCOVERY_VERSION,
+    device_id = "warehouse-east",
+    device_type = "warehouse_controller",
+    sent_at = 10,
+    protocols = {
+      { name = "warehouse", version = 1, role = "server" },
+    },
+  }, "rc.discovery_v1")
+
+  local heartbeat, senderId, err = contracts.discovery_v1.receive()
+
+  lu.assertNil(err)
+  lu.assertEquals(senderId, 12)
+  lu.assertEquals(heartbeat.device_id, "warehouse-east")
 end
 
 return M

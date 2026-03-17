@@ -38,6 +38,9 @@ Service modules expose:
 - `replySuccess(...)`
 - `replyError(...)`
 
+`receiveRequest(...)` returns a service-level request object with `request_id`,
+`method`, and `params`, rather than exposing the raw MRPC envelope.
+
 ### Validation style
 
 Validators return:

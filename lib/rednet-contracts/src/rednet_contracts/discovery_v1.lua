@@ -13,6 +13,10 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field protocols DiscoveryHeartbeatProtocol[]
 ---@field interval_seconds number|nil
 
+---@class DiscoveryHeartbeat: DiscoveryHeartbeatFields
+---@field type "device_discovery_heartbeat"
+---@field discovery_version integer
+
 ---@class DiscoveryReceiveOptions
 ---@field rednet_protocol string|nil
 ---@field timeout number|nil
@@ -66,7 +70,7 @@ local function validateProtocolEntry(entry, path)
 end
 
 ---Validate one discovery heartbeat payload.
----@param message table
+---@param message any
 ---@return boolean, table|nil
 function M.validateHeartbeat(message)
   local ok, err = schema.requireTable(message, "message")
@@ -115,10 +119,7 @@ function M.validateHeartbeat(message)
   return true
 end
 
----Build a validated discovery heartbeat payload.
----@param fields DiscoveryHeartbeatFields
----@return table
-function M.buildHeartbeat(fields)
+local function buildHeartbeat(fields)
   local message = copyTable(fields)
   message.type = M.HEARTBEAT_TYPE
   message.discovery_version = M.DISCOVERY_VERSION
@@ -134,9 +135,9 @@ end
 ---Broadcast a validated discovery heartbeat over rednet.
 ---@param fields DiscoveryHeartbeatFields
 ---@param opts DiscoveryReceiveOptions|nil
----@return table
+---@return DiscoveryHeartbeat
 function M.broadcast(fields, opts)
-  local message = M.buildHeartbeat(fields)
+  local message = buildHeartbeat(fields)
   local protocol = opts and opts.rednet_protocol or M.REDNET_PROTOCOL
 
   rednet.broadcast(message, protocol)
@@ -146,7 +147,8 @@ end
 
 ---Receive and validate one discovery heartbeat from rednet.
 ---@param opts DiscoveryReceiveOptions|nil
----@return table|nil, integer|nil, table|nil
+---@return DiscoveryHeartbeat|nil, integer|nil, table|nil
+---When `err` is `nil`, `senderId` is guaranteed to be a rednet id.
 function M.receive(opts)
   local protocol = opts and opts.rednet_protocol or M.REDNET_PROTOCOL
   local timeout = opts and opts.timeout or nil
@@ -163,6 +165,7 @@ function M.receive(opts)
     return nil, senderId, err
   end
 
+  ---@cast message DiscoveryHeartbeat
   return message, senderId, nil
 end
 

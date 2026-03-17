@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil
 local lu = require("deps.luaunit")
 local env = require("cc.cc_test_env")
 
@@ -185,6 +186,42 @@ function M.testConfigProvidesStickyDefaults()
   lu.assertNil(err)
   lu.assertFalse(result.paused)
   lu.assertEquals(env.getRednetSends()[1].protocol, "custom.inventory")
+end
+
+function M.testPerCallOptionsOverrideConfiguredDefaults()
+  local contracts = freshContracts()
+  local protocol = contracts.global_inventory_v1
+
+  protocol.config({
+    rednet_protocol = "default.inventory",
+    timeout = 4,
+  })
+
+  env.queueRednetReceive(44, {
+    type = "response",
+    protocol = {
+      name = "global_inventory",
+      version = 1,
+    },
+    request_id = "req-6",
+    ok = true,
+    result = {
+      coordinator_id = "coordinator-1",
+      paused = false,
+      changed = true,
+      sent_at = 101,
+    },
+    sent_at = 101,
+  }, "override.inventory")
+
+  local result, err = protocol.resumeSync(44, {
+    request_id = "req-6",
+    rednet_protocol = "override.inventory",
+  })
+
+  lu.assertNil(err)
+  lu.assertFalse(result.paused)
+  lu.assertEquals(env.getRednetSends()[1].protocol, "override.inventory")
 end
 
 return M

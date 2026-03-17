@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil
 local lu = require("deps.luaunit")
 local env = require("cc.cc_test_env")
 
@@ -213,6 +214,48 @@ function M.testConfigProvidesStickyDefaults()
   lu.assertNil(err)
   lu.assertEquals(result.warehouse_id, "wh-1")
   lu.assertEquals(env.getRednetSends()[1].protocol, "custom.warehouse")
+end
+
+function M.testPerCallOptionsOverrideConfiguredDefaults()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  warehouse.config({
+    rednet_protocol = "default.warehouse",
+    timeout = 3,
+  })
+
+  env.queueRednetReceive(77, {
+    type = "response",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-5",
+    ok = true,
+    result = {
+      warehouse_id = "wh-1",
+      warehouse_address = "east",
+      observed_at = 101,
+      inventory = {
+        ["minecraft:iron_ingot"] = 10,
+      },
+      capacity = {
+        slot_capacity_total = 20,
+        slot_capacity_used = 5,
+      },
+    },
+    sent_at = 102,
+  }, "override.warehouse")
+
+  local result, err = warehouse.getSnapshot(77, {
+    request_id = "req-5",
+    rednet_protocol = "override.warehouse",
+  })
+
+  lu.assertNil(err)
+  lu.assertEquals(result.warehouse_id, "wh-1")
+  lu.assertEquals(env.getRednetSends()[1].protocol, "override.warehouse")
 end
 
 return M

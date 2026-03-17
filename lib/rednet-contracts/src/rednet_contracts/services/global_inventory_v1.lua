@@ -14,6 +14,11 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field auto_reply_errors boolean|nil
 ---@field details table|nil
 
+---@class GlobalInventoryReceivedRequest
+---@field request_id string
+---@field method string
+---@field params table
+
 ---`global_inventory_v1` service helpers layered on top of `mrpc_v1`.
 ---@class RednetContractsGlobalInventoryV1
 local M = {
@@ -428,6 +433,14 @@ local function validateResponseForMethod(method, message)
   return VALIDATORS[method].result(message.result)
 end
 
+local function toReceivedRequest(request)
+  return {
+    request_id = request.request_id,
+    method = request.method,
+    params = request.params,
+  }
+end
+
 local function buildResponse(requestId, method, result, sentAt)
   local ok, err = ensureMethod(method)
   if not ok then
@@ -514,7 +527,7 @@ end
 
 ---Receive and validate one `global_inventory_v1` request.
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return integer|nil, MrpcRequestEnvelope|nil, string|nil, table|nil
+---@return integer|nil, GlobalInventoryReceivedRequest|nil, string|nil, table|nil
 function M.receiveRequest(opts)
   local effective = mergeCallOptions(opts)
   local senderId, request, err = mrpc.receiveRequest(effective)
@@ -524,7 +537,7 @@ function M.receiveRequest(opts)
 
   local ok, method, validationErr = validateRequest(request)
   if ok then
-    return senderId, request, method, nil
+    return senderId, toReceivedRequest(request), method, nil
   end
 
   if effective.auto_reply_errors ~= false and senderId ~= nil and request.request_id ~= nil then
@@ -539,7 +552,7 @@ end
 
 ---Reply to a validated `global_inventory_v1` request with a successful result.
 ---@param rednetId integer
----@param request MrpcRequestEnvelope
+---@param request GlobalInventoryReceivedRequest
 ---@param method string
 ---@param result table
 ---@param opts GlobalInventoryServiceCallOptions|nil
@@ -555,7 +568,7 @@ end
 
 ---Reply to a validated `global_inventory_v1` request with a structured error.
 ---@param rednetId integer
----@param request MrpcRequestEnvelope
+---@param request GlobalInventoryReceivedRequest
 ---@param code string
 ---@param messageText string
 ---@param opts GlobalInventoryServiceCallOptions|nil

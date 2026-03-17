@@ -2,6 +2,11 @@
 ---@class RednetContractsErrors
 local M = {}
 
+---@class RednetContractsError
+---@field code string
+---@field message string
+---@field details table|nil
+
 local function copyTable(source)
   local target = {}
 
@@ -16,7 +21,7 @@ end
 ---@param code string
 ---@param message string
 ---@param details table|nil
----@return table
+---@return RednetContractsError
 function M.new(code, message, details)
   return {
     code = code,

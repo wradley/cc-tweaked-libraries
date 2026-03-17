@@ -41,6 +41,11 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field auto_reply_errors boolean|nil
 ---@field details table|nil
 
+---@class WarehouseReceivedRequest
+---@field request_id string
+---@field method string
+---@field params table
+
 ---`warehouse_v1` service helpers layered on top of `mrpc_v1`.
 ---@class RednetContractsWarehouseV1
 local M = {
@@ -557,6 +562,10 @@ local VALIDATORS = {
   },
 }
 
+---Validate that an inbound MRPC request targets `warehouse_v1` and that its
+---method-specific params match the service contract.
+---@param message MrpcRequestEnvelope
+---@return boolean, string|nil, RednetContractsError|nil
 local function validateRequest(message)
   local ok, err = mrpc.validateRequest(message)
   if not ok then
@@ -582,6 +591,11 @@ local function validateRequest(message)
   return true, message.method, nil
 end
 
+---Validate that an MRPC response matches the requested `warehouse_v1` method
+---and that a successful result uses the expected service-specific shape.
+---@param method string
+---@param message MrpcResponseEnvelope
+---@return boolean, table|nil
 local function validateResponseForMethod(method, message)
   local ok, err = ensureMethod(method)
   if not ok then
@@ -606,18 +620,12 @@ local function validateResponseForMethod(method, message)
   return VALIDATORS[method].result(message.result)
 end
 
-local function buildRequest(requestId, method, params, sentAt)
-  local ok, err = ensureMethod(method)
-  if not ok then
-    errors.raise(err, 1)
-  end
-
-  ok, err = VALIDATORS[method].params(params or {})
-  if not ok then
-    errors.raise(err, 1)
-  end
-
-  return mrpc.buildRequest(M.SERVICE, requestId, method, params or {}, sentAt)
+local function toReceivedRequest(request)
+  return {
+    request_id = request.request_id,
+    method = request.method,
+    params = request.params,
+  }
 end
 
 local function buildResponse(requestId, method, result, sentAt)
@@ -708,7 +716,7 @@ end
 
 ---Receive and validate one `warehouse_v1` request.
 ---@param opts WarehouseServiceCallOptions|nil
----@return integer|nil, MrpcRequestEnvelope|nil, string|nil, table|nil
+---@return integer|nil, WarehouseReceivedRequest|nil, string|nil, table|nil
 function M.receiveRequest(opts)
   local effective = mergeCallOptions(opts)
   local senderId, request, err = mrpc.receiveRequest(effective)
@@ -718,7 +726,7 @@ function M.receiveRequest(opts)
 
   local ok, method, validationErr = validateRequest(request)
   if ok then
-    return senderId, request, method, nil
+    return senderId, toReceivedRequest(request), method, nil
   end
 
   if effective.auto_reply_errors ~= false and senderId ~= nil and request.request_id ~= nil then
@@ -733,7 +741,7 @@ end
 
 ---Reply to a validated `warehouse_v1` request with a successful result.
 ---@param rednetId integer
----@param request MrpcRequestEnvelope
+---@param request WarehouseReceivedRequest
 ---@param method string
 ---@param result table
 ---@param opts WarehouseServiceCallOptions|nil
@@ -749,7 +757,7 @@ end
 
 ---Reply to a validated `warehouse_v1` request with a structured error.
 ---@param rednetId integer
----@param request MrpcRequestEnvelope
+---@param request WarehouseReceivedRequest
 ---@param code string
 ---@param messageText string
 ---@param opts WarehouseServiceCallOptions|nil
