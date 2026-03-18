@@ -29,6 +29,16 @@ local schema = require("rednet_contracts.schema_validation")
 ---@class WarehouseGetTransferRequestStatusParams
 ---@field transfer_request_id string
 
+---@class WarehouseOwnerRecord
+---@field coordinator_id string
+---@field coordinator_address string
+---@field claimed_at integer
+
+---@class WarehouseSetOwnerParams
+---@field coordinator_id string
+---@field coordinator_address string
+---@field claimed_at integer
+
 ---@class WarehouseServiceDefaults
 ---@field rednet_protocol string|nil
 ---@field timeout number|nil
@@ -43,8 +53,10 @@ local schema = require("rednet_contracts.schema_validation")
 
 ---@enum WarehouseV1Method
 local METHODS = {
+  GET_OWNER = "get_owner",
   GET_OVERVIEW = "get_overview",
   GET_SNAPSHOT = "get_snapshot",
+  SET_OWNER = "set_owner",
   ASSIGN_TRANSFER_REQUEST = "assign_transfer_request",
   GET_TRANSFER_REQUEST_STATUS = "get_transfer_request_status",
 }
@@ -114,8 +126,10 @@ local function validateDefaults(options, path)
 end
 
 local function ensureMethod(method)
-  if method == M.METHODS.GET_OVERVIEW
+  if method == M.METHODS.GET_OWNER
+    or method == M.METHODS.GET_OVERVIEW
     or method == M.METHODS.GET_SNAPSHOT
+    or method == M.METHODS.SET_OWNER
     or method == M.METHODS.ASSIGN_TRANSFER_REQUEST
     or method == M.METHODS.GET_TRANSFER_REQUEST_STATUS
   then
@@ -127,6 +141,62 @@ end
 
 local function validateIssueList(value, path)
   return schema.requireTable(value, path)
+end
+
+local function validateOwnerRecord(value, path)
+  local ok, err = schema.requireTable(value, path)
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.requireString(value.coordinator_id, path .. ".coordinator_id")
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.requireString(value.coordinator_address, path .. ".coordinator_address")
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.requireInteger(value.claimed_at, path .. ".claimed_at")
+  if not ok then
+    return false, err
+  end
+
+  return true
+end
+
+local function validateGetOwnerParams(params)
+  return schema.requireEmptyTable(params, "params")
+end
+
+local function validateGetOwnerResult(result)
+  local ok, err = schema.requireTable(result, "result")
+  if not ok then
+    return false, err
+  end
+
+  for _, field in ipairs({ "warehouse_id", "warehouse_address" }) do
+    ok, err = schema.requireString(result[field], "result." .. field)
+    if not ok then
+      return false, err
+    end
+  end
+
+  ok, err = schema.requireInteger(result.observed_at, "result.observed_at")
+  if not ok then
+    return false, err
+  end
+
+  if result.owner ~= nil then
+    ok, err = validateOwnerRecord(result.owner, "result.owner")
+    if not ok then
+      return false, err
+    end
+  end
+
+  return true
 end
 
 local function validateOverviewStatus(value, path)
@@ -453,6 +523,48 @@ local function validateAssignTransferRequestParams(params)
   return true
 end
 
+local function validateSetOwnerParams(params)
+  local ok, err = schema.requireTable(params, "params")
+  if not ok then
+    return false, err
+  end
+
+  return validateOwnerRecord(params, "params")
+end
+
+local function validateSetOwnerResult(result)
+  local ok, err = schema.requireTable(result, "result")
+  if not ok then
+    return false, err
+  end
+
+  for _, field in ipairs({ "warehouse_id", "warehouse_address" }) do
+    ok, err = schema.requireString(result[field], "result." .. field)
+    if not ok then
+      return false, err
+    end
+  end
+
+  ok, err = schema.requireBoolean(result.accepted, "result.accepted")
+  if not ok then
+    return false, err
+  end
+
+  ok, err = schema.requireInteger(result.sent_at, "result.sent_at")
+  if not ok then
+    return false, err
+  end
+
+  if result.owner ~= nil then
+    ok, err = validateOwnerRecord(result.owner, "result.owner")
+    if not ok then
+      return false, err
+    end
+  end
+
+  return true
+end
+
 local function validateAssignTransferRequestResult(result)
   local ok, err = schema.requireTable(result, "result")
   if not ok then
@@ -547,6 +659,10 @@ local function validateGetTransferRequestStatusResult(result)
 end
 
 local VALIDATORS = {
+  [METHODS.GET_OWNER] = {
+    params = validateGetOwnerParams,
+    result = validateGetOwnerResult,
+  },
   [METHODS.GET_OVERVIEW] = {
     params = validateGetOverviewParams,
     result = validateGetOverviewResult,
@@ -554,6 +670,10 @@ local VALIDATORS = {
   [METHODS.GET_SNAPSHOT] = {
     params = validateGetSnapshotParams,
     result = validateGetSnapshotResult,
+  },
+  [METHODS.SET_OWNER] = {
+    params = validateSetOwnerParams,
+    result = validateSetOwnerResult,
   },
   [METHODS.ASSIGN_TRANSFER_REQUEST] = {
     params = validateAssignTransferRequestParams,
@@ -683,6 +803,14 @@ function M.config(options)
   return copyTable(config)
 end
 
+---Call `warehouse_v1.get_owner()`.
+---@param rednetId integer
+---@param opts WarehouseServiceCallOptions|nil
+---@return table|nil, table|nil
+function M.getOwner(rednetId, opts)
+  return callMethod(rednetId, M.METHODS.GET_OWNER, {}, opts)
+end
+
 ---Call `warehouse_v1.get_overview()`.
 ---@param rednetId integer
 ---@param opts WarehouseServiceCallOptions|nil
@@ -697,6 +825,15 @@ end
 ---@return table|nil, table|nil
 function M.getSnapshot(rednetId, opts)
   return callMethod(rednetId, M.METHODS.GET_SNAPSHOT, {}, opts)
+end
+
+---Call `warehouse_v1.set_owner()`.
+---@param rednetId integer
+---@param params WarehouseSetOwnerParams
+---@param opts WarehouseServiceCallOptions|nil
+---@return table|nil, table|nil
+function M.setOwner(rednetId, params, opts)
+  return callMethod(rednetId, M.METHODS.SET_OWNER, params, opts)
 end
 
 ---Call `warehouse_v1.assign_transfer_request()`.

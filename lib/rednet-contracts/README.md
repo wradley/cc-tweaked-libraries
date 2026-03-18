@@ -33,7 +33,7 @@ This library implements the initial contract surface from `AGENTS/specs/07-redne
 Service modules expose:
 
 - `config(options?)`
-- high-level request helpers such as `getSnapshot(...)` and `pauseSync(...)`
+- high-level request helpers such as `getOwner(...)`, `setOwner(...)`, `getSnapshot(...)`, and `pauseSync(...)`
 - `receiveRequest(...)`
 - `replySuccess(...)`
 - `replyError(...)`

@@ -83,6 +83,79 @@ function M.testAssignTransferRequestUsesNewShape()
   lu.assertNil(env.getRednetSends()[1].message.params.assignments[1].items[1].transfer_id)
 end
 
+function M.testGetOwnerCallsMrpcAndAllowsNilOwner()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  env.queueRednetReceive(77, {
+    type = "response",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-owner-1",
+    ok = true,
+    result = {
+      warehouse_id = "wh-1",
+      warehouse_address = "east",
+      owner = nil,
+      observed_at = 101,
+    },
+    sent_at = 101,
+  }, "rc.mrpc_v1")
+
+  local result, err = warehouse.getOwner(77, {
+    request_id = "req-owner-1",
+  })
+
+  lu.assertNil(err)
+  lu.assertEquals(result.warehouse_id, "wh-1")
+  lu.assertNil(result.owner)
+  lu.assertEquals(env.getRednetSends()[1].message.method, warehouse.METHODS.GET_OWNER)
+  lu.assertEquals(env.getRednetSends()[1].message.params, {})
+end
+
+function M.testSetOwnerSendsOwnerClaimAndReturnsValidatedResult()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  env.queueRednetReceive(77, {
+    type = "response",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-owner-2",
+    ok = true,
+    result = {
+      warehouse_id = "wh-1",
+      warehouse_address = "east",
+      accepted = true,
+      owner = {
+        coordinator_id = "coord-1",
+        coordinator_address = "global-sync",
+        claimed_at = 100,
+      },
+      sent_at = 101,
+    },
+    sent_at = 101,
+  }, "rc.mrpc_v1")
+
+  local result, err = warehouse.setOwner(77, {
+    coordinator_id = "coord-1",
+    coordinator_address = "global-sync",
+    claimed_at = 100,
+  }, {
+    request_id = "req-owner-2",
+  })
+
+  lu.assertNil(err)
+  lu.assertTrue(result.accepted)
+  lu.assertEquals(result.owner.coordinator_id, "coord-1")
+  lu.assertEquals(env.getRednetSends()[1].message.method, warehouse.METHODS.SET_OWNER)
+  lu.assertEquals(env.getRednetSends()[1].message.params.coordinator_address, "global-sync")
+end
+
 function M.testGetSnapshotCallsMrpcAndReturnsValidatedResult()
   local contracts = freshContracts()
   local warehouse = contracts.warehouse_v1
@@ -175,6 +248,35 @@ function M.testReceiveRequestAutoRepliesOnMalformedParams()
   lu.assertEquals(env.getRednetSends()[1].message.error.code, "invalid_value")
 end
 
+function M.testReceiveRequestAutoRepliesOnMalformedSetOwnerParams()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  env.queueRednetReceive(88, {
+    type = "request",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-bad-owner",
+    method = warehouse.METHODS.SET_OWNER,
+    params = {
+      coordinator_id = "coord-1",
+      claimed_at = 100,
+    },
+    sent_at = 100,
+  }, "rc.mrpc_v1")
+
+  local senderId, request, method, err = warehouse.receiveRequest()
+
+  lu.assertEquals(senderId, 88)
+  lu.assertNil(request)
+  lu.assertNil(method)
+  lu.assertEquals(err.details.path, "params.coordinator_address")
+  lu.assertEquals(env.getRednetSends()[1].message.ok, false)
+  lu.assertEquals(env.getRednetSends()[1].message.error.code, "invalid_type")
+end
+
 function M.testConfigProvidesStickyDefaults()
   local contracts = freshContracts()
   local warehouse = contracts.warehouse_v1
@@ -256,6 +358,14 @@ function M.testPerCallOptionsOverrideConfiguredDefaults()
   lu.assertNil(err)
   lu.assertEquals(result.warehouse_id, "wh-1")
   lu.assertEquals(env.getRednetSends()[1].protocol, "override.warehouse")
+end
+
+function M.testMethodsExposeOwnerOperations()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  lu.assertEquals(warehouse.METHODS.GET_OWNER, "get_owner")
+  lu.assertEquals(warehouse.METHODS.SET_OWNER, "set_owner")
 end
 
 return M
