@@ -50,6 +50,7 @@ function M.testBroadcastRejectsInvalidProtocolRole()
       device_type = "warehouse_controller",
       sent_at = 10,
       protocols = {
+        ---@diagnostic disable-next-line: assign-type-mismatch
         { name = "warehouse", version = 1, role = "peer" },
       },
     })
