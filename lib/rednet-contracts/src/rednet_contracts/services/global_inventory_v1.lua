@@ -14,18 +14,23 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field auto_reply_errors boolean|nil
 ---@field details table|nil
 
+---@enum GlobalInventoryV1Method
+local METHODS = {
+  GET_OVERVIEW = "get_overview",
+  PAUSE_SYNC = "pause_sync",
+  RESUME_SYNC = "resume_sync",
+  SYNC_NOW = "sync_now",
+}
+
 ---@class GlobalInventoryReceivedRequest
 ---@field request_id string
----@field method string
+---@field method GlobalInventoryV1Method
 ---@field params table
 
 local M = {
   NAME = "global_inventory",
   VERSION = 1,
-  GET_OVERVIEW = "get_overview",
-  PAUSE_SYNC = "pause_sync",
-  RESUME_SYNC = "resume_sync",
-  SYNC_NOW = "sync_now",
+  METHODS = METHODS,
 }
 
 M.SERVICE = {
@@ -82,10 +87,10 @@ local function validateDefaults(options, path)
 end
 
 local function ensureMethod(method)
-  if method == M.GET_OVERVIEW
-    or method == M.PAUSE_SYNC
-    or method == M.RESUME_SYNC
-    or method == M.SYNC_NOW
+  if method == M.METHODS.GET_OVERVIEW
+    or method == M.METHODS.PAUSE_SYNC
+    or method == M.METHODS.RESUME_SYNC
+    or method == M.METHODS.SYNC_NOW
   then
     return true
   end
@@ -364,19 +369,19 @@ local function validateSyncNowResult(result)
 end
 
 local VALIDATORS = {
-  get_overview = {
+  [METHODS.GET_OVERVIEW] = {
     params = validateGetOverviewParams,
     result = validateGetOverviewResult,
   },
-  pause_sync = {
+  [METHODS.PAUSE_SYNC] = {
     params = validatePauseSyncParams,
     result = validatePauseSyncResult,
   },
-  resume_sync = {
+  [METHODS.RESUME_SYNC] = {
     params = validateResumeSyncParams,
     result = validateResumeSyncResult,
   },
-  sync_now = {
+  [METHODS.SYNC_NOW] = {
     params = validateSyncNowParams,
     result = validateSyncNowResult,
   },
@@ -496,7 +501,7 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.getOverview(rednetId, opts)
-  return callMethod(rednetId, M.GET_OVERVIEW, {}, opts)
+  return callMethod(rednetId, M.METHODS.GET_OVERVIEW, {}, opts)
 end
 
 ---Call `global_inventory_v1.pause_sync()`.
@@ -504,7 +509,7 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.pauseSync(rednetId, opts)
-  return callMethod(rednetId, M.PAUSE_SYNC, {}, opts)
+  return callMethod(rednetId, M.METHODS.PAUSE_SYNC, {}, opts)
 end
 
 ---Call `global_inventory_v1.resume_sync()`.
@@ -512,7 +517,7 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.resumeSync(rednetId, opts)
-  return callMethod(rednetId, M.RESUME_SYNC, {}, opts)
+  return callMethod(rednetId, M.METHODS.RESUME_SYNC, {}, opts)
 end
 
 ---Call `global_inventory_v1.sync_now()`.
@@ -520,7 +525,7 @@ end
 ---@param opts GlobalInventoryServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.syncNow(rednetId, opts)
-  return callMethod(rednetId, M.SYNC_NOW, {}, opts)
+  return callMethod(rednetId, M.METHODS.SYNC_NOW, {}, opts)
 end
 
 ---Receive and validate one `global_inventory_v1` request.

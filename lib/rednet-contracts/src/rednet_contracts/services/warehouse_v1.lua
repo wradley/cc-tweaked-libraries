@@ -41,18 +41,23 @@ local schema = require("rednet_contracts.schema_validation")
 ---@field auto_reply_errors boolean|nil
 ---@field details table|nil
 
+---@enum WarehouseV1Method
+local METHODS = {
+  GET_OVERVIEW = "get_overview",
+  GET_SNAPSHOT = "get_snapshot",
+  ASSIGN_TRANSFER_REQUEST = "assign_transfer_request",
+  GET_TRANSFER_REQUEST_STATUS = "get_transfer_request_status",
+}
+
 ---@class WarehouseReceivedRequest
 ---@field request_id string
----@field method string
+---@field method WarehouseV1Method
 ---@field params table
 
 local M = {
   NAME = "warehouse",
   VERSION = 1,
-  GET_OVERVIEW = "get_overview",
-  GET_SNAPSHOT = "get_snapshot",
-  ASSIGN_TRANSFER_REQUEST = "assign_transfer_request",
-  GET_TRANSFER_REQUEST_STATUS = "get_transfer_request_status",
+  METHODS = METHODS,
 }
 
 M.SERVICE = {
@@ -109,10 +114,10 @@ local function validateDefaults(options, path)
 end
 
 local function ensureMethod(method)
-  if method == M.GET_OVERVIEW
-    or method == M.GET_SNAPSHOT
-    or method == M.ASSIGN_TRANSFER_REQUEST
-    or method == M.GET_TRANSFER_REQUEST_STATUS
+  if method == M.METHODS.GET_OVERVIEW
+    or method == M.METHODS.GET_SNAPSHOT
+    or method == M.METHODS.ASSIGN_TRANSFER_REQUEST
+    or method == M.METHODS.GET_TRANSFER_REQUEST_STATUS
   then
     return true
   end
@@ -542,19 +547,19 @@ local function validateGetTransferRequestStatusResult(result)
 end
 
 local VALIDATORS = {
-  get_overview = {
+  [METHODS.GET_OVERVIEW] = {
     params = validateGetOverviewParams,
     result = validateGetOverviewResult,
   },
-  get_snapshot = {
+  [METHODS.GET_SNAPSHOT] = {
     params = validateGetSnapshotParams,
     result = validateGetSnapshotResult,
   },
-  assign_transfer_request = {
+  [METHODS.ASSIGN_TRANSFER_REQUEST] = {
     params = validateAssignTransferRequestParams,
     result = validateAssignTransferRequestResult,
   },
-  get_transfer_request_status = {
+  [METHODS.GET_TRANSFER_REQUEST_STATUS] = {
     params = validateGetTransferRequestStatusParams,
     result = validateGetTransferRequestStatusResult,
   },
@@ -683,7 +688,7 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.getOverview(rednetId, opts)
-  return callMethod(rednetId, M.GET_OVERVIEW, {}, opts)
+  return callMethod(rednetId, M.METHODS.GET_OVERVIEW, {}, opts)
 end
 
 ---Call `warehouse_v1.get_snapshot()`.
@@ -691,7 +696,7 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.getSnapshot(rednetId, opts)
-  return callMethod(rednetId, M.GET_SNAPSHOT, {}, opts)
+  return callMethod(rednetId, M.METHODS.GET_SNAPSHOT, {}, opts)
 end
 
 ---Call `warehouse_v1.assign_transfer_request()`.
@@ -700,7 +705,7 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.assignTransferRequest(rednetId, params, opts)
-  return callMethod(rednetId, M.ASSIGN_TRANSFER_REQUEST, params, opts)
+  return callMethod(rednetId, M.METHODS.ASSIGN_TRANSFER_REQUEST, params, opts)
 end
 
 ---Call `warehouse_v1.get_transfer_request_status()`.
@@ -709,7 +714,7 @@ end
 ---@param opts WarehouseServiceCallOptions|nil
 ---@return table|nil, table|nil
 function M.getTransferRequestStatus(rednetId, params, opts)
-  return callMethod(rednetId, M.GET_TRANSFER_REQUEST_STATUS, params, opts)
+  return callMethod(rednetId, M.METHODS.GET_TRANSFER_REQUEST_STATUS, params, opts)
 end
 
 ---Receive and validate one `warehouse_v1` request.
