@@ -220,6 +220,102 @@ function M.testGetOverviewRejectsInvalidResponseShape()
   lu.assertEquals(err.details.path, "result.warehouse_address")
 end
 
+function M.testGetTransferRequestStatusReturnsValidatedPackageEvidence()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  env.queueRednetReceive(77, {
+    type = "response",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-status-1",
+    ok = true,
+    result = {
+      warehouse_id = "wh-1",
+      warehouse_address = "east",
+      transfer_request_id = "tr-1",
+      status = "queued",
+      executed_at = 101,
+      total_assignments = 1,
+      total_items_requested = 32,
+      total_items_queued = 32,
+      assignments = {
+        {
+          assignment_id = "as-1",
+          destination = "west",
+          destination_address = "WH_WEST",
+          line_count = 1,
+          requested_items = 32,
+          queued_items = 32,
+          status = "queued",
+        },
+      },
+      packages = {
+        ["in"] = {
+          "123-1-1",
+        },
+        ["out"] = {
+          "456-1-1",
+          "456-1-2",
+        },
+      },
+      sent_at = 102,
+    },
+    sent_at = 102,
+  }, "rc.mrpc_v1")
+
+  local result, err = warehouse.getTransferRequestStatus(77, {
+    transfer_request_id = "tr-1",
+  }, {
+    request_id = "req-status-1",
+  })
+
+  lu.assertNil(err)
+  lu.assertEquals(result.transfer_request_id, "tr-1")
+  lu.assertEquals(result.packages["in"][1], "123-1-1")
+  lu.assertEquals(result.packages["out"][2], "456-1-2")
+  lu.assertEquals(env.getRednetSends()[1].message.method, warehouse.METHODS.GET_TRANSFER_REQUEST_STATUS)
+end
+
+function M.testGetTransferRequestStatusRejectsMissingPackages()
+  local contracts = freshContracts()
+  local warehouse = contracts.warehouse_v1
+
+  env.queueRednetReceive(77, {
+    type = "response",
+    protocol = {
+      name = "warehouse",
+      version = 1,
+    },
+    request_id = "req-status-2",
+    ok = true,
+    result = {
+      warehouse_id = "wh-1",
+      warehouse_address = "east",
+      transfer_request_id = "tr-1",
+      status = "queued",
+      executed_at = 101,
+      total_assignments = 1,
+      total_items_requested = 32,
+      total_items_queued = 32,
+      assignments = {},
+      sent_at = 102,
+    },
+    sent_at = 102,
+  }, "rc.mrpc_v1")
+
+  local result, err = warehouse.getTransferRequestStatus(77, {
+    transfer_request_id = "tr-1",
+  }, {
+    request_id = "req-status-2",
+  })
+
+  lu.assertNil(result)
+  lu.assertEquals(err.details.path, "result.packages")
+end
+
 function M.testReceiveRequestAutoRepliesOnMalformedParams()
   local contracts = freshContracts()
   local warehouse = contracts.warehouse_v1

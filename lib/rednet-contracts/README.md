@@ -41,6 +41,15 @@ Service modules expose:
 `receiveRequest(...)` returns a service-level request object with `request_id`,
 `method`, and `params`, rather than exposing the raw MRPC envelope.
 
+High-level call helpers now use named LuaDoc result types such as:
+
+- `WarehouseGetOwnerResult`
+- `WarehouseGetOverviewResult`
+- `WarehouseGetSnapshotResult`
+- `WarehouseSetOwnerResult`
+- `WarehouseAssignTransferRequestResult`
+- `WarehouseGetTransferRequestStatusResult`
+
 ### Validation style
 
 Validators return:
@@ -69,7 +78,7 @@ Internal modules such as `rednet_contracts.mrpc_v1` and `rednet_contracts.schema
 still exist for library internals and focused tests, but the intended application-facing API is
 the root package plus the service modules it exposes.
 
-## Example
+## Examples
 
 ```lua
 local contracts = require("rednet_contracts")
@@ -93,3 +102,73 @@ if not snapshot then
   error(contracts.errors.format(err), 0)
 end
 ```
+
+### `warehouse_v1.get_owner()`
+
+Request:
+
+```lua
+{}
+```
+
+Success result:
+
+```lua
+{
+  warehouse_id = "west",
+  warehouse_address = "WH_WEST",
+  owner = {
+    coordinator_id = "central",
+    coordinator_address = "central",
+    claimed_at = 1742430000000,
+  },
+  observed_at = 1742430005000,
+}
+```
+
+### `warehouse_v1.get_transfer_request_status()`
+
+Request:
+
+```lua
+{
+  transfer_request_id = "west:2:64:123456",
+}
+```
+
+Success result:
+
+```lua
+{
+  warehouse_id = "west",
+  warehouse_address = "WH_WEST",
+  transfer_request_id = "west:2:64:123456",
+  status = "queued",
+  executed_at = 1742430010000,
+  total_assignments = 2,
+  total_items_requested = 64,
+  total_items_queued = 64,
+  assignments = {
+    {
+      assignment_id = "assign-1",
+      destination = "east",
+      destination_address = "WH_EAST",
+      line_count = 2,
+      requested_items = 32,
+      queued_items = 32,
+      status = "queued",
+    },
+  },
+  packages = {
+    ["in"] = {},
+    ["out"] = {
+      "123-1-1",
+      "123-1-2",
+    },
+  },
+  sent_at = 1742430012000,
+}
+```
+
+Package ids are expected to use Create order data in the form
+`orderId-linkIndex-index` when order data is present on the package object.
