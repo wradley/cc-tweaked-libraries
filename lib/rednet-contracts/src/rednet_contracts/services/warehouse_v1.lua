@@ -932,8 +932,8 @@ end
 ---Call `warehouse_v1.get_owner()`.
 ---@param rednetId integer
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseGetOwnerResult|nil result
----@return table|nil err
+---@return WarehouseGetOwnerResult result
+---@return RednetContractsError|nil err
 function M.getOwner(rednetId, opts)
   return callMethod(rednetId, M.METHODS.GET_OWNER, {}, opts)
 end
@@ -941,8 +941,8 @@ end
 ---Call `warehouse_v1.get_overview()`.
 ---@param rednetId integer
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseGetOverviewResult|nil result
----@return table|nil err
+---@return WarehouseGetOverviewResult result
+---@return RednetContractsError|nil err
 function M.getOverview(rednetId, opts)
   return callMethod(rednetId, M.METHODS.GET_OVERVIEW, {}, opts)
 end
@@ -950,8 +950,8 @@ end
 ---Call `warehouse_v1.get_snapshot()`.
 ---@param rednetId integer
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseGetSnapshotResult|nil result
----@return table|nil err
+---@return WarehouseGetSnapshotResult result
+---@return RednetContractsError|nil err
 function M.getSnapshot(rednetId, opts)
   return callMethod(rednetId, M.METHODS.GET_SNAPSHOT, {}, opts)
 end
@@ -960,8 +960,8 @@ end
 ---@param rednetId integer
 ---@param params WarehouseSetOwnerParams
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseSetOwnerResult|nil result
----@return table|nil err
+---@return WarehouseSetOwnerResult result
+---@return RednetContractsError|nil err
 function M.setOwner(rednetId, params, opts)
   return callMethod(rednetId, M.METHODS.SET_OWNER, params, opts)
 end
@@ -970,8 +970,8 @@ end
 ---@param rednetId integer
 ---@param params WarehouseAssignTransferRequestParams
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseAssignTransferRequestResult|nil result
----@return table|nil err
+---@return WarehouseAssignTransferRequestResult result
+---@return RednetContractsError|nil err
 function M.assignTransferRequest(rednetId, params, opts)
   return callMethod(rednetId, M.METHODS.ASSIGN_TRANSFER_REQUEST, params, opts)
 end
@@ -980,19 +980,25 @@ end
 ---@param rednetId integer
 ---@param params WarehouseGetTransferRequestStatusParams
 ---@param opts WarehouseServiceCallOptions|nil
----@return WarehouseGetTransferRequestStatusResult|nil result
----@return table|nil err
+---@return WarehouseGetTransferRequestStatusResult result
+---@return RednetContractsError|nil err
 function M.getTransferRequestStatus(rednetId, params, opts)
   return callMethod(rednetId, M.METHODS.GET_TRANSFER_REQUEST_STATUS, params, opts)
 end
 
 ---Receive and validate one `warehouse_v1` request.
+---When `err` is non-nil the other return values are unspecified; callers must
+---branch on `err` before using `request` or `method`.
 ---@param opts WarehouseServiceCallOptions|nil
----@return integer|nil, WarehouseReceivedRequest|nil, string|nil, table|nil
+---@return integer|nil senderId
+---@return WarehouseReceivedRequest request
+---@return string method
+---@return RednetContractsError|nil err
 function M.receiveRequest(opts)
   local effective = mergeCallOptions(opts)
   local senderId, request, err = mrpc.receiveRequest(effective)
   if err then
+    ---@diagnostic disable-next-line: return-type-mismatch
     return senderId, nil, nil, err
   end
 
@@ -1005,6 +1011,7 @@ function M.receiveRequest(opts)
       })
     end
 
+    ---@diagnostic disable-next-line: return-type-mismatch
     return senderId, nil, nil, validationErr
   end
 

@@ -7,7 +7,7 @@ Tests live under `tst/` and run through `tst/run.lua`.
 
 ## Version
 
-- `0.1.0`
+- `0.1.1`
 
 ## Scope
 

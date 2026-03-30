@@ -27,6 +27,55 @@ local METHODS = {
 ---@field method GlobalInventoryV1Method
 ---@field params table
 
+---@class GlobalInventorySchedule
+---@field paused boolean
+---@field sync_interval_seconds integer
+---@field next_sync_due_at integer|nil
+
+---@class GlobalInventoryTransferCycle
+---@field active boolean
+---@field kind string|nil
+---@field started_at integer|nil
+---@field completed_warehouses integer
+---@field total_warehouses integer
+
+---@class GlobalInventoryWarehouseOverview
+---@field warehouse_id string
+---@field warehouse_address string
+---@field state "pending"|"accepted"
+---@field online boolean
+---@field last_heartbeat_at integer|nil
+---@field last_snapshot_at integer|nil
+---@field last_transfer_request_id string|nil
+---@field last_transfer_request_status string|nil
+
+---@class GlobalInventoryInventorySummary
+---@field total_item_types integer
+---@field total_item_count integer|nil
+---@field slot_capacity_used integer
+---@field slot_capacity_total integer|nil
+
+---@class GlobalInventoryGetOverviewResult
+---@field coordinator_id string
+---@field observed_at integer
+---@field schedule GlobalInventorySchedule
+---@field transfer_cycle GlobalInventoryTransferCycle
+---@field warehouses GlobalInventoryWarehouseOverview[]
+---@field inventory_summary GlobalInventoryInventorySummary
+---@field recent_issues table
+
+---@class GlobalInventoryPauseSyncResult
+---@field coordinator_id string
+---@field paused boolean
+---@field changed boolean
+---@field sent_at integer
+
+---@class GlobalInventorySyncNowResult
+---@field coordinator_id string
+---@field accepted boolean
+---@field reason string|nil
+---@field sent_at integer
+
 local M = {
   NAME = "global_inventory",
   VERSION = 1,
@@ -500,7 +549,8 @@ end
 ---Call `global_inventory_v1.get_overview()`.
 ---@param rednetId integer
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return table|nil, table|nil
+---@return GlobalInventoryGetOverviewResult result
+---@return RednetContractsError|nil err
 function M.getOverview(rednetId, opts)
   return callMethod(rednetId, M.METHODS.GET_OVERVIEW, {}, opts)
 end
@@ -508,7 +558,8 @@ end
 ---Call `global_inventory_v1.pause_sync()`.
 ---@param rednetId integer
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return table|nil, table|nil
+---@return GlobalInventoryPauseSyncResult result
+---@return RednetContractsError|nil err
 function M.pauseSync(rednetId, opts)
   return callMethod(rednetId, M.METHODS.PAUSE_SYNC, {}, opts)
 end
@@ -516,7 +567,8 @@ end
 ---Call `global_inventory_v1.resume_sync()`.
 ---@param rednetId integer
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return table|nil, table|nil
+---@return GlobalInventoryPauseSyncResult result
+---@return RednetContractsError|nil err
 function M.resumeSync(rednetId, opts)
   return callMethod(rednetId, M.METHODS.RESUME_SYNC, {}, opts)
 end
@@ -524,18 +576,25 @@ end
 ---Call `global_inventory_v1.sync_now()`.
 ---@param rednetId integer
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return table|nil, table|nil
+---@return GlobalInventorySyncNowResult result
+---@return RednetContractsError|nil err
 function M.syncNow(rednetId, opts)
   return callMethod(rednetId, M.METHODS.SYNC_NOW, {}, opts)
 end
 
 ---Receive and validate one `global_inventory_v1` request.
+---When `err` is non-nil the other return values are unspecified; callers must
+---branch on `err` before using `request` or `method`.
 ---@param opts GlobalInventoryServiceCallOptions|nil
----@return integer|nil, GlobalInventoryReceivedRequest|nil, string|nil, table|nil
+---@return integer|nil senderId
+---@return GlobalInventoryReceivedRequest request
+---@return string method
+---@return RednetContractsError|nil err
 function M.receiveRequest(opts)
   local effective = mergeCallOptions(opts)
   local senderId, request, err = mrpc.receiveRequest(effective)
   if err then
+    ---@diagnostic disable-next-line: return-type-mismatch
     return senderId, nil, nil, err
   end
 
@@ -548,6 +607,7 @@ function M.receiveRequest(opts)
       })
     end
 
+    ---@diagnostic disable-next-line: return-type-mismatch
     return senderId, nil, nil, validationErr
   end
 

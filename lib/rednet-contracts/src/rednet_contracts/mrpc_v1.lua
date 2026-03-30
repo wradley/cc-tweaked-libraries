@@ -249,14 +249,19 @@ function M.buildErrorResponse(service, requestId, code, messageText, sentAt, det
 end
 
 ---Receive and validate one RPC request envelope from rednet.
+---When `err` is non-nil the other return values are unspecified; callers must
+---branch on `err` before using `message`.
 ---@param opts MrpcOptions|nil
----@return integer|nil, table|nil, table|nil
+---@return integer|nil senderId
+---@return table message
+---@return table|nil err
 function M.receiveRequest(opts)
   local protocol = opts and opts.rednet_protocol or M.REDNET_PROTOCOL
   local timeout = opts and opts.timeout or nil
   local senderId, message = rednet.receive(protocol, timeout)
 
   if senderId == nil then
+    ---@diagnostic disable-next-line: return-type-mismatch
     return nil, nil, errors.new("timeout", "timed out waiting for rpc request", {
       path = "rednet.receive",
     })
@@ -264,6 +269,7 @@ function M.receiveRequest(opts)
 
   local ok, err = M.validateRequest(message)
   if not ok then
+    ---@diagnostic disable-next-line: return-type-mismatch
     return senderId, nil, err
   end
 
